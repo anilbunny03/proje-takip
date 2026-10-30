@@ -1,5 +1,10 @@
 # Değişiklik Günlüğü / Changelog
 
+## [1.0.1] — CI düzeltmesi / CI fix
+
+- TR: GitHub Actions geçici klasör değişkeni adım düzeyine taşındı; Linux/Windows iş akışı doğrulama hatası düzeltildi. Uygulama davranışı değişmedi.
+- EN: Moved the GitHub Actions temporary-directory variable to step scope, fixing Linux/Windows workflow validation. Application behavior is unchanged.
+
 ## [1.0.0] — İlk sürüm / Initial release
 
 ### Türkçe

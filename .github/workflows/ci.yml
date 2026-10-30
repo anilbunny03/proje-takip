@@ -14,7 +14,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PYTHONDONTWRITEBYTECODE: "1"
-      TRACKER_TEST_TMP: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,8 +23,12 @@ jobs:
         with:
           node-version: "24"
       - name: JavaScript tests
+        env:
+          TRACKER_TEST_TMP: ${{ runner.temp }}
         run: node --test tests/branding.test.cjs tests/core.test.cjs
       - name: Python and package tests
+        env:
+          TRACKER_TEST_TMP: ${{ runner.temp }}
         run: python -B -m unittest discover -s tests -p "test_*.py"
       - name: Build portable ZIP
         run: python -B tools/package.py
