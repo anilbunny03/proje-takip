@@ -119,6 +119,16 @@ class ServerTests(unittest.TestCase):
 
 
 class PackageTests(unittest.TestCase):
+    def test_cli_with_legacy_windows_console_encoding(self):
+        import os
+        import subprocess
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'cp1252'
+        env['PYTHONUTF8'] = '0'
+        result = subprocess.run([sys.executable,'-B',str(ROOT/'tools'/'package.py')],env=env,capture_output=True,timeout=30)
+        self.assertEqual(result.returncode,0,result.stderr.decode('utf-8',errors='replace'))
+        self.assertIn('Oluşturuldu:',result.stdout.decode('utf-8'))
+
     def test_collect_includes_bilingual_docs_and_licenses(self):
         import os
         import tempfile

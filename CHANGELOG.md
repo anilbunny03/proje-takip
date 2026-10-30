@@ -4,6 +4,8 @@
 
 - TR: GitHub Actions geçici klasör değişkeni adım düzeyine taşındı; Linux/Windows iş akışı doğrulama hatası düzeltildi. Uygulama davranışı değişmedi.
 - EN: Moved the GitHub Actions temporary-directory variable to step scope, fixing Linux/Windows workflow validation. Application behavior is unchanged.
+- TR: Yönlendirilmiş Windows konsollarında Türkçe paketleme/sunucu mesajları için UTF-8 kullanılır.
+- EN: Use UTF-8 for Turkish packaging/server messages in redirected Windows consoles.
 
 ## [1.0.0] — İlk sürüm / Initial release
 

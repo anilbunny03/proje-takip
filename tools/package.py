@@ -50,6 +50,10 @@ def build(root, out):
 
 
 if __name__ == "__main__":
+    # Keep Turkish messages readable in redirected Windows/CI consoles.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     root = Path(__file__).resolve().parent.parent
     out = build(root, root / "dist" / "Proje-Takip-Uygulamasi.zip")
     with zipfile.ZipFile(out) as z:
