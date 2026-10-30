@@ -1,0 +1,2200 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proje Takip Uygulaması</title>
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1">
+  <script src="vendor/jsyaml.min.js"></script>
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="assets/branding.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --font-display:'Newsreader',Georgia,serif; --font-body:'Manrope',-apple-system,sans-serif; --font-mono:'IBM Plex Mono','SF Mono','Fira Code',monospace;
+      --bg:#17140F; --bg-card:#221E17; --bg-sidebar:#1B1811; --bg-header:#1B1811;
+      --bg-modal:#2A251D; --bg-input:#28231B; --border:#3D362A; --border-soft:#2E2921;
+      --text:#F5E9CC; --text-muted:#9A8B6C; --text-label:#D4AD73;
+      --accent:#C4972F; --accent-hover:#D6A63A; --accent-soft:color-mix(in oklab, var(--accent) 14%, transparent);
+      --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+      --shadow:0 8px 28px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+      --shadow-lg:0 20px 60px rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.3);
+      --radius-sm:8px; --radius:14px; --radius-lg:20px;
+      --ease:cubic-bezier(.2,.7,.3,1);
+    }
+    @media (prefers-color-scheme:light) {
+      :root {
+        --bg:#F7EFDC; --bg-card:#FFFEFB; --bg-sidebar:#F0E4C8; --bg-header:#FFFEFB;
+        --bg-modal:#FFFEFB; --bg-input:#FBF5E6; --border:#E2D1A5; --border-soft:#ECDFB8;
+        --text:#211C12; --text-muted:#6B5C3F; --text-label:#8A6A2A;
+        --accent:#A9791F; --accent-hover:#946a1a; --accent-soft:color-mix(in oklab, var(--accent) 12%, transparent);
+        --shadow-sm:0 1px 2px rgba(30,20,0,.06);
+        --shadow:0 8px 28px rgba(30,20,0,.10), 0 2px 6px rgba(30,20,0,.06);
+        --shadow-lg:0 24px 60px rgba(30,20,0,.16), 0 4px 14px rgba(30,20,0,.08);
+      }
+    }
+    body { font-family:var(--font-body); background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; font-size:14.5px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+
+    /* HEADER */
+    header { background:var(--bg-header); border-bottom:1px solid var(--border-soft); padding:0 22px; height:64px; display:flex; align-items:center; gap:14px; flex-shrink:0; position:sticky; top:0; z-index:100; box-shadow:var(--shadow-sm); }
+    .logo-icon { width:34px; height:34px; border-radius:11px; background:var(--accent-soft); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:#fff; flex-shrink:0; }
+    .logo { font-family:var(--font-display); font-weight:600; font-size:19px; color:var(--text); letter-spacing:-.01em; flex-shrink:0; white-space:nowrap; }
+    .logo span { color:var(--accent); }
+    .folder-pill { font-size:12px; font-weight:600; color:var(--text-muted); background:var(--bg-input); border:1px solid var(--border-soft); border-radius:20px; padding:5px 13px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .today-chip { font-size:12px; font-weight:600; color:var(--text-muted); background:var(--bg-input); border:1px solid var(--border-soft); border-radius:20px; padding:5px 13px; flex-shrink:0; white-space:nowrap; }
+    .spacer { flex:1; }
+    .search-wrap { position:relative; }
+    .search-icon { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:14px; pointer-events:none; }
+    .search-input { background:var(--bg-input); border:1px solid var(--border); border-radius:999px; color:var(--text); padding:9px 14px 9px 36px; font-size:13.5px; width:220px; outline:none; transition:box-shadow .18s var(--ease), border-color .18s var(--ease), width .18s var(--ease); }
+    .search-input:focus { border-color:var(--accent); width:260px; box-shadow:0 0 0 4px var(--accent-soft); }
+    .view-toggle { display:flex; background:var(--bg-input); border:1px solid var(--border); border-radius:999px; overflow:hidden; padding:3px; gap:2px; }
+    .view-btn { padding:7px 15px; font-size:12.5px; font-weight:700; color:var(--text-muted); background:none; border:none; border-radius:999px; cursor:pointer; transition:background .15s var(--ease), color .15s var(--ease); }
+    .view-btn.active { background:var(--accent); color:#fff; box-shadow:var(--shadow-sm); }
+    .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:999px; font-size:13.5px; font-weight:700; cursor:pointer; border:none; transition:transform .15s var(--ease), box-shadow .15s var(--ease), opacity .15s var(--ease), background .15s var(--ease); }
+    .btn:hover { transform:translateY(-1px); }
+    .btn:active { transform:translateY(0); }
+    .btn-primary { background:var(--accent); color:#fff; box-shadow:0 2px 10px color-mix(in oklab, var(--accent) 45%, transparent); }
+    .btn-primary:hover { background:var(--accent-hover); box-shadow:0 6px 18px color-mix(in oklab, var(--accent) 50%, transparent); }
+    .btn-secondary { background:var(--bg-input); border:1px solid var(--border); color:var(--text); }
+    .btn-secondary:hover { border-color:var(--accent); }
+    .btn-danger { background:#C0503C; color:#fff; box-shadow:0 2px 10px rgba(192,80,60,.35); }
+    .btn-danger:hover { background:#D25E49; }
+    .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text-muted); }
+    .btn-ghost:hover { color:var(--text); border-color:var(--text-muted); }
+    .btn-sm { padding:6px 13px; font-size:12.5px; }
+
+    /* LAYOUT */
+    .app-body { display:flex; flex:1; overflow:hidden; height:calc(100vh - 64px); }
+
+    /* SIDEBAR — floating card sections, chip icons, left-accent active state */
+    aside { width:250px; min-width:170px; max-width:500px; flex-shrink:0; background:var(--bg-sidebar); border-right:1px solid var(--border-soft); overflow-y:auto; padding:16px 12px; display:flex; flex-direction:column; gap:14px; position:relative; }
+    #sidebar-resizer { position:absolute; right:0; top:0; bottom:0; width:5px; cursor:col-resize; z-index:5; }
+    #sidebar-resizer:hover, #sidebar-resizer.resizing { background:var(--accent); opacity:.4; }
+    .s-section { display:flex; flex-direction:column; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); box-shadow:var(--shadow-sm); overflow:hidden; flex-shrink:0; }
+    .s-section-header {
+      display:flex; align-items:center; gap:7px; padding:11px 12px 11px 14px;
+      cursor:pointer; user-select:none; border-bottom:1px solid var(--border-soft);
+    }
+    .s-section-header:hover .s-section-label { color:var(--accent); }
+    .s-caret { font-size:9px; color:var(--text-muted); width:11px; flex-shrink:0; transition:transform .15s var(--ease); }
+    .s-caret.open { transform:rotate(0deg); }
+    .s-caret.closed { transform:rotate(-90deg); }
+    .s-section-label { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.09em; color:var(--text-label); flex:1; transition:color .15s; }
+    .s-add-btn { width:22px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; line-height:1; border-radius:7px; transition:color .15s,background .15s; }
+    .s-add-btn:hover { color:var(--accent); background:var(--accent-soft); }
+    .s-body { padding:7px; display:flex; flex-direction:column; gap:1px; }
+    .s-item { display:flex; align-items:center; gap:10px; padding:8px 9px 8px 11px; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:500; color:var(--text-muted); border-left:3px solid transparent; transition:background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease); user-select:none; }
+    .s-item:hover { background:var(--bg-input); color:var(--text); }
+    .s-item.active { background:var(--accent-soft); border-left-color:var(--accent); color:var(--accent); font-weight:700; }
+    .s-chip { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#fff; flex-shrink:0; }
+    .s-count { margin-left:auto; font-size:10.5px; font-weight:700; color:var(--text-muted); background:var(--bg-input); border-radius:8px; padding:2px 7px; flex-shrink:0; }
+    .s-item.active .s-count { background:var(--accent); color:#fff; }
+    .s-item-del { display:none; background:none; border:none; cursor:pointer; font-size:12px; padding:0 2px; color:var(--text-muted); flex-shrink:0; line-height:1; }
+    .s-item:hover .s-item-del { display:inline; }
+    .s-item-del:hover { color:#C0503C; }
+    .avatar { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+    /* MAIN */
+    main { flex:1; overflow:auto; }
+    #welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; text-align:center; padding:60px 40px; height:100%; }
+    #welcome .big-icon { font-size:64px; }
+    #welcome h1 { font-family:var(--font-display); font-size:34px; font-weight:600; letter-spacing:-.02em; }
+    #welcome p { color:var(--text-muted); font-size:15px; max-width:380px; line-height:1.6; }
+    .no-support { color:#C0503C; font-size:12px; margin-top:4px; }
+
+    /* KANBAN */
+    .kanban-board { display:flex; gap:18px; padding:22px; min-height:100%; align-items:flex-start; }
+    .k-col { flex:0 0 280px; min-width:280px; background:var(--bg-sidebar); border:1px solid var(--border-soft); border-radius:var(--radius); display:flex; flex-direction:column; max-height:calc(100vh - 108px); box-shadow:var(--shadow-sm); }
+    .k-col-header { display:flex; align-items:center; gap:8px; padding:16px 16px 12px; flex-shrink:0; }
+    .k-col-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .k-col-title { font-weight:700; font-size:13.5px; flex:1; letter-spacing:-.01em; }
+    .k-col-count { font-size:11px; font-weight:700; color:var(--text-muted); background:var(--bg-input); border-radius:10px; padding:2px 8px; }
+    .k-cards { flex:1; overflow-y:auto; padding:2px 12px 12px; display:flex; flex-direction:column; gap:10px; min-height:48px; }
+    .k-cards.drag-over { background:var(--accent-soft); border-radius:12px; outline:2px dashed var(--accent); outline-offset:-4px; }
+    .k-add { padding:6px 12px 14px; flex-shrink:0; }
+    .k-add-btn { display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:12.5px; font-weight:600; cursor:pointer; padding:8px 10px; border-radius:10px; background:none; border:1px dashed var(--border); width:100%; transition:color .15s,background .15s,border-color .15s; }
+    .k-add-btn:hover { color:var(--accent); background:var(--bg-card); border-color:var(--accent); }
+
+    /* TASK CARD */
+    .task-card { background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:14px 15px; cursor:pointer; transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease); position:relative; box-shadow:var(--shadow-sm); }
+    .task-card:hover { border-color:var(--accent); box-shadow:var(--shadow); transform:translateY(-2px); }
+    .task-card.dragging { opacity:.35; cursor:grabbing; }
+    .card-title { font-weight:700; font-size:13.5px; margin-bottom:10px; line-height:1.45; letter-spacing:-.005em; }
+    .card-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .tag { display:inline-flex; align-items:center; font-size:10.5px; font-weight:700; border-radius:6px; padding:3px 8px; }
+    .tag-low { background:oklch(58% 0.11 145 / .18); color:oklch(58% 0.11 145); }
+    .tag-medium { background:oklch(60% 0.09 230 / .18); color:oklch(60% 0.09 230); }
+    .tag-high { background:oklch(72% 0.13 80 / .22); color:oklch(50% 0.13 80); }
+    .tag-critical { background:oklch(55% 0.15 25 / .18); color:oklch(55% 0.15 25); }
+    .tag-proj { background:var(--bg-input); color:var(--text-muted); border-left:3px solid; }
+    @media (prefers-color-scheme:light) {
+      .tag-low{background:oklch(58% 0.11 145 / .16);color:oklch(38% 0.1 145)} .tag-medium{background:oklch(60% 0.09 230 / .16);color:oklch(40% 0.09 230)}
+      .tag-high{background:oklch(72% 0.13 80 / .2);color:oklch(42% 0.12 80)} .tag-critical{background:oklch(55% 0.15 25 / .16);color:oklch(40% 0.15 25)}
+    }
+    .date-tag { font-size:10.5px; font-weight:700; border-radius:6px; padding:3px 8px; display:inline-flex; align-items:center; gap:3px; }
+    .date-red { background:oklch(55% 0.15 25 / .18); color:oklch(55% 0.15 25); }
+    .date-yellow { background:oklch(72% 0.13 80 / .22); color:oklch(50% 0.13 80); }
+    .date-green { background:oklch(58% 0.11 145 / .18); color:oklch(58% 0.11 145); }
+    .date-none { color:var(--text-muted); background:var(--bg-input); }
+    /* Validity badges */
+    .val-badge { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; border-radius:6px; padding:4px 9px; white-space:nowrap; }
+    .val-bulunmuyor { background:oklch(55% 0.15 25 / .18); color:oklch(55% 0.15 25); }
+    .val-gecerli { background:oklch(58% 0.11 145 / .18); color:oklch(58% 0.11 145); }
+    .val-suresiz-gecerli { background:color-mix(in oklab, var(--accent) 18%, transparent); color:var(--accent); }
+    .val-suresi-dolmus { background:oklch(72% 0.13 80 / .22); color:oklch(50% 0.13 80); }
+    .assignee-tag { display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--text-muted); margin-left:auto; }
+    .card-edit-btn { display:none; position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:7px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-muted); cursor:pointer; font-size:11px; align-items:center; justify-content:center; transition:color .15s,border-color .15s; }
+    .task-card:hover .card-edit-btn { display:flex; }
+    .card-edit-btn:hover { color:var(--text); border-color:var(--accent); }
+
+    /* LIST VIEW */
+    .list-wrap { padding:22px; }
+    .list-table { width:100%; border-collapse:collapse; background:var(--bg-card); border-radius:var(--radius); overflow:hidden; border:1px solid var(--border-soft); box-shadow:var(--shadow-sm); }
+    .list-table th { text-align:left; padding:13px 16px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); background:var(--bg-sidebar); border-bottom:1px solid var(--border-soft); cursor:pointer; user-select:none; white-space:nowrap; }
+    .list-table th:hover { color:var(--accent); }
+    .list-table td { padding:13px 16px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+    .list-table tr:last-child td { border-bottom:none; }
+    .list-table tbody tr { transition:background .12s; }
+    .list-table tbody tr:hover td { background:var(--bg-input); cursor:pointer; }
+    .status-badge { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; border-radius:999px; padding:4px 11px; white-space:nowrap; background:var(--bg-input); border:1px solid var(--border-soft); }
+    .status-dot { width:7px; height:7px; border-radius:50%; }
+    .td-date { font-size:12.5px; font-weight:700; }
+    .td-date-red { color:oklch(55% 0.15 25); }
+    .td-date-yellow { color:oklch(50% 0.13 80); }
+    .td-date-green { color:oklch(58% 0.11 145); }
+    .td-date-none { color:var(--text-muted); font-weight:400; }
+
+    /* DOC LIST VIEW */
+    .doc-list-header { display:flex; align-items:center; justify-content:space-between; padding:22px 22px 12px; }
+    .doc-list-header h2 { font-family:var(--font-display); font-size:22px; font-weight:600; display:flex; align-items:center; gap:10px; letter-spacing:-.01em; }
+
+    /* EMPTY */
+    .empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 20px; color:var(--text-muted); text-align:center; gap:12px; }
+    .empty-icon { font-size:46px; opacity:.3; }
+    .empty h3 { font-family:var(--font-display); font-size:18px; font-weight:600; color:var(--text); }
+    .empty p { font-size:13.5px; max-width:300px; line-height:1.6; }
+
+    /* SIDE PANEL */
+    .side-panel { position:fixed; right:0; top:64px; bottom:0; width:760px; background:var(--bg-modal); border-left:1px solid var(--border-soft); z-index:500; transform:translateX(100%); transition:transform .3s var(--ease), width .2s ease, left .2s ease; display:flex; flex-direction:column; box-shadow:var(--shadow-lg); }
+    .panel-resizer { position:absolute; left:0; top:0; bottom:0; width:6px; cursor:col-resize; z-index:10; transition:background .15s; }
+    .panel-resizer:hover, .panel-resizer.resizing { background:var(--accent); opacity:.45; }
+    .side-panel.open { transform:translateX(0); }
+    .side-panel.panel-fullscreen { width:100% !important; left:0; box-shadow:none; border-left:none; }
+    .panel-backdrop { position:fixed; inset:0; top:64px; background:rgba(10,8,4,.35); backdrop-filter:blur(2px); z-index:499; }
+    .panel-backdrop.fs-hidden { display:none !important; }
+    .panel-fs-btn { width:32px; height:32px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-input); color:var(--text-muted); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s,color .15s; }
+    .panel-fs-btn:hover { background:var(--border); color:var(--text); }
+    .panel-section { display:flex; flex-direction:column; height:100%; }
+    .panel-header { display:flex; align-items:flex-start; justify-content:space-between; padding:22px 26px 18px; border-bottom:1px solid var(--border-soft); flex-shrink:0; gap:14px; }
+    .panel-title { font-family:var(--font-display); font-size:21px; font-weight:600; line-height:1.35; letter-spacing:-.01em; flex:1; word-break:break-word; }
+    .panel-actions { display:flex; gap:7px; align-items:center; flex-shrink:0; }
+    .panel-close { width:32px; height:32px; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-input); color:var(--text-muted); cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; transition:background .15s,color .15s; }
+    .panel-close:hover { background:var(--border); color:var(--text); }
+    .panel-body { flex:1; overflow-y:auto; }
+    .panel-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border-soft); flex-shrink:0; padding:0 26px; }
+    .p-tab { padding:12px 16px; font-size:13px; font-weight:700; color:var(--text-muted); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; transition:color .15s; }
+    .p-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .panel-tab-pane { display:none; padding:26px; }
+    .panel-tab-pane.active { display:block; }
+    .doc-view-body { flex:1; overflow-y:auto; padding:26px; }
+    .doc-edit-wrap { flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+    .doc-editor { flex:1; resize:none; min-height:0; font-family:var(--font-mono); font-size:13px; line-height:1.8; border-top:none !important; border-radius:0 !important; }
+    .doc-save-bar { padding:12px 22px; border-top:1px solid var(--border-soft); display:flex; justify-content:flex-end; gap:8px; flex-shrink:0; background:var(--bg-modal); }
+
+    /* MD TOOLBAR */
+    .md-toolbar { display:flex; align-items:center; gap:2px; flex-wrap:wrap; padding:7px 10px; background:var(--bg-sidebar); border:1px solid var(--border); border-bottom:none; border-radius:var(--radius-sm) var(--radius-sm) 0 0; flex-shrink:0; }
+    .md-btn { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:28px; padding:0 6px; border:none; border-radius:7px; cursor:pointer; background:none; color:var(--text-muted); font-size:12px; font-weight:700; font-family:inherit; transition:background .12s,color .12s; }
+    .md-btn:hover { background:var(--bg-input); color:var(--accent); }
+    .md-btn b { font-family:Georgia,serif; font-size:13px; }
+    .md-btn i { font-family:Georgia,serif; font-style:italic; font-size:13px; }
+    .md-sep { width:1px; height:18px; background:var(--border); margin:0 4px; flex-shrink:0; }
+    .md-toolbar + .form-textarea, .md-toolbar + textarea { border-top-left-radius:0 !important; border-top-right-radius:0 !important; }
+
+    /* MODAL */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(10,8,4,.55); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); animation:fade-in .15s var(--ease); }
+    .modal { background:var(--bg-modal); border:1px solid var(--border-soft); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); width:100%; max-width:560px; max-height:90vh; overflow-y:auto; display:flex; flex-direction:column; animation:modal-in .22s var(--ease); }
+    @keyframes fade-in { from{opacity:0} to{opacity:1} }
+    @keyframes modal-in { from{opacity:0;transform:translateY(10px) scale(.98)} to{opacity:1;transform:none} }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+    .modal-title { font-family:var(--font-display); font-size:19px; font-weight:600; letter-spacing:-.01em; }
+    .modal-close { width:30px; height:30px; border-radius:9px; border:1px solid var(--border-soft); background:var(--bg-input); color:var(--text-muted); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:background .15s,color .15s; }
+    .modal-close:hover { background:var(--border); color:var(--text); }
+    .modal-body { padding:24px; display:flex; flex-direction:column; gap:16px; }
+    .modal-footer { padding:16px 24px; border-top:1px solid var(--border-soft); display:flex; justify-content:flex-end; gap:8px; flex-shrink:0; }
+    .form-group { display:flex; flex-direction:column; gap:6px; }
+    .form-label { font-size:12px; font-weight:700; color:var(--text-label); }
+    .form-input,.form-select,.form-textarea { background:var(--bg-input); border:1px solid var(--border); border-radius:10px; color:var(--text); padding:9px 12px; font-size:13.5px; font-family:inherit; outline:none; width:100%; transition:border-color .15s,box-shadow .15s; }
+    .form-input:focus,.form-select:focus,.form-textarea:focus { border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
+    .form-textarea { resize:vertical; min-height:160px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+    .color-row { display:flex; gap:10px; align-items:center; }
+    .color-row input[type="color"] { width:40px; height:34px; padding:2px; border-radius:10px; border:1px solid var(--border); background:var(--bg-input); cursor:pointer; }
+
+    /* MD PREVIEW */
+    .md-preview { line-height:1.8; font-size:14.5px; }
+    .md-preview h1,.md-preview h2,.md-preview h3,.md-preview h4 { margin:20px 0 9px; font-family:var(--font-display); font-weight:600; letter-spacing:-.01em; }
+    .md-preview h1{font-size:23px} .md-preview h2{font-size:19px} .md-preview h3{font-size:16px}
+    .md-preview p { margin-bottom:12px; }
+    .md-preview ul,.md-preview ol { padding-left:24px; margin-bottom:12px; }
+    .md-preview li { margin-bottom:5px; }
+    .md-preview code { background:var(--bg-input); padding:2px 7px; border-radius:5px; font-family:var(--font-mono); font-size:12.5px; }
+    .md-preview pre { background:var(--bg-input); padding:16px; border-radius:12px; overflow-x:auto; margin-bottom:14px; border:1px solid var(--border-soft); }
+    .md-preview pre code { background:none; padding:0; }
+    .md-preview blockquote { border-left:3px solid var(--accent); padding-left:16px; color:var(--text-muted); margin-bottom:12px; }
+    .md-preview a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
+    .md-preview hr { border:none; border-top:1px solid var(--border-soft); margin:20px 0; }
+    .md-preview table { border-collapse:collapse; width:100%; margin-bottom:16px; display:block; overflow-x:auto; border-radius:10px; }
+    .md-preview th,.md-preview td { border:1px solid var(--border-soft); padding:9px 14px; text-align:left; vertical-align:top; }
+    .md-preview th { background:color-mix(in oklab, var(--accent) 18%, transparent); font-weight:700; }
+    .md-preview tbody tr:nth-child(even) td { background:rgba(255,255,255,.03); }
+    @media (prefers-color-scheme:light) {
+      .md-preview th,.md-preview td { border-color:var(--border-soft); }
+      .md-preview th { background:color-mix(in oklab, var(--accent) 10%, transparent); }
+      .md-preview tbody tr:nth-child(even) td { background:rgba(0,0,0,.02); }
+    }
+    .md-empty { color:var(--text-muted); font-style:italic; font-size:13.5px; }
+    .meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:8px; }
+    .meta-item { display:flex; flex-direction:column; gap:4px; }
+    .meta-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); }
+    .meta-value { font-size:13.5px; color:var(--text); font-weight:500; }
+    .raw-md { font-family:var(--font-mono); font-size:11.5px; background:var(--bg-input); border-radius:var(--radius); padding:18px; white-space:pre-wrap; line-height:1.75; color:var(--text); border:1px solid var(--border-soft); }
+
+    /* TOAST */
+    #toast-area { position:fixed; bottom:22px; right:22px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+    .toast { background:var(--bg-card); border:1px solid var(--border-soft); border-radius:12px; padding:11px 16px; font-size:13.5px; font-weight:500; box-shadow:var(--shadow-lg); display:flex; align-items:center; gap:9px; animation:toast-in .25s var(--ease); }
+    .toast.ok{border-left:3px solid oklch(58% 0.11 145)} .toast.err{border-left:3px solid oklch(55% 0.15 25)} .toast.info{border-left:3px solid var(--accent)}
+    @keyframes toast-in { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+
+    .hidden { display:none !important; }
+    ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  </style>
+  <link rel="stylesheet" href="assets/branding.css">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header>
+  <div class="logo-icon" style="background:none;color:var(--accent);">
+    <img src="assets/favicon.svg" alt="" width="34" height="34">
+  </div>
+  <span class="logo">Proje Takip Uygulaması</span>
+  <span class="folder-pill hidden" id="folder-pill"></span>
+  <span class="today-chip" id="today-chip"></span>
+  <div class="spacer"></div>
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input class="search-input" id="search-input" type="text" placeholder="Ara…" oninput="App.search(this.value)">
+  </div>
+  <div class="view-toggle" id="view-toggle">
+    <button class="view-btn active" id="btn-kanban" onclick="App.setView('kanban')">Kanban</button>
+    <button class="view-btn"        id="btn-list"   onclick="App.setView('list')">Liste</button>
+  </div>
+  <button class="btn btn-secondary btn-sm" id="btn-branding" onclick="Branding.open()">Kurum ve Görünüm</button>
+  <button class="btn btn-secondary btn-sm" id="btn-open" onclick="App.openFolder()">📂 Klasör Aç</button>
+  <button class="btn btn-secondary btn-sm hidden" id="btn-sync"     onclick="App.sync()">⟳</button>
+  <button class="btn btn-primary   btn-sm hidden" id="btn-new-task" onclick="App.openTaskModal()">+ Yeni Görev</button>
+  <button class="btn btn-primary   btn-sm hidden" id="btn-new-doc"  onclick="App.openDocModal()">+ Yeni Doküman</button>
+</header>
+
+<div class="app-body" id="app-body">
+
+  <div id="welcome">
+    <div class="big-icon">🌐</div>
+    <h1>Proje Takip Uygulaması</h1>
+    <p>Projelerinizi, görevlerinizi ve dokümanlarınızı kendi klasörünüzde yönetin. Hesap açmadan, abonelik olmadan.</p>
+    <p class="privacy-note">Kayıtlar Markdown dosyalarıdır. Drive veya OneDrive klasörü seçerseniz ilgili hizmet dosyalarınızı senkronize edebilir. Yerel kayıt şifreleme veya yedekleme sağlamaz.</p>
+    <button class="btn btn-primary" onclick="App.openFolder()">📂 Klasör Seç</button>
+    <div id="support-msg"></div>
+  </div>
+
+  <aside id="sidebar" class="hidden">
+    <div id="sidebar-resizer"></div>
+
+    <!-- PROJELER -->
+    <div class="s-section">
+      <div class="s-section-header" onclick="App.toggleSection('projects')">
+        <span class="s-caret open" id="caret-projects">▾</span>
+        <span class="s-section-label">Projeler</span>
+        <button class="s-add-btn" onclick="event.stopPropagation();App.openProjectModal()" title="Yeni Proje">＋</button>
+      </div>
+      <div class="s-body" id="s-body-projects">
+        <div id="s-projects"></div>
+      </div>
+    </div>
+
+    <!-- DOKÜMANLAR -->
+    <div class="s-section">
+      <div class="s-section-header" onclick="App.toggleSection('documents')">
+        <span class="s-caret open" id="caret-documents">▾</span>
+        <span class="s-section-label">Dokümanlar</span>
+        <button class="s-add-btn" onclick="event.stopPropagation();App.openDocListModal()" title="Yeni Doküman Listesi">＋</button>
+      </div>
+      <div class="s-body" id="s-body-documents">
+        <div id="s-documents"></div>
+      </div>
+    </div>
+
+    <!-- ATANAN -->
+    <div class="s-section">
+      <div class="s-section-header" onclick="App.toggleSection('assignees')">
+        <span class="s-caret open" id="caret-assignees">▾</span>
+        <span class="s-section-label">Atanan</span>
+      </div>
+      <div class="s-body" id="s-body-assignees">
+        <div id="s-assignees"></div>
+      </div>
+    </div>
+
+    <!-- ARŞİVLENMİŞ PROJELER -->
+    <div id="s-archived-projects"></div>
+
+  </aside>
+
+  <main id="main" class="hidden">
+    <div id="kanban-root"></div>
+    <div id="list-root"     class="hidden"></div>
+    <div id="doc-list-root" class="hidden"></div>
+  </main>
+
+</div>
+
+<!-- SIDE PANEL -->
+<div class="side-panel" id="side-panel">
+  <div class="panel-resizer" id="panel-resizer"></div>
+
+  <div id="panel-task" class="panel-section hidden">
+    <div class="panel-header">
+      <span class="panel-title" id="panel-task-title"></span>
+      <div class="panel-actions">
+        <button class="btn btn-ghost btn-sm hidden" id="btn-task-cancel" onclick="App.cancelTaskEdit()">İptal</button>
+        <button class="btn btn-primary btn-sm hidden" id="btn-task-save" onclick="App.saveTaskFromPanel()">Kaydet</button>
+        <button class="btn btn-secondary btn-sm" id="btn-task-edit" onclick="App.toggleTaskEdit()">✏ Düzenle</button>
+        <button class="btn btn-secondary btn-sm" onclick="S.detailTask&&App.duplicateTaskById(S.detailTask.id)" title="Kopyala">📋</button>
+        <button class="btn btn-danger btn-sm" id="btn-task-del" onclick="App.deleteTaskFromPanel()">🗑</button>
+        <button class="panel-fs-btn" id="fs-btn-task" onclick="App.togglePanelFullscreen()" title="Tam Ekran">⛶</button>
+        <button class="panel-close" onclick="App.closePanel()">✕</button>
+      </div>
+    </div>
+    <!-- View mode -->
+    <div id="task-view-mode">
+      <div class="panel-tabs">
+        <button class="p-tab active" data-tab="preview" onclick="App.panelTab(this,'preview')">Önizleme</button>
+        <button class="p-tab"        data-tab="raw"     onclick="App.panelTab(this,'raw')">Ham .md</button>
+      </div>
+      <div class="panel-body">
+        <div class="panel-tab-pane active" data-pane="preview" id="panel-tab-preview"></div>
+        <div class="panel-tab-pane"        data-pane="raw"     id="panel-tab-raw"></div>
+      </div>
+    </div>
+    <!-- Edit mode -->
+    <div id="task-edit-mode" class="doc-edit-wrap hidden">
+      <div class="panel-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:11px">
+        <input type="hidden" id="fe-id">
+        <div class="form-group">
+          <label class="form-label">Başlık *</label>
+          <input class="form-input" id="fe-title" placeholder="Görev başlığı…">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Proje</label>
+            <select class="form-select" id="fe-project"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Durum</label>
+            <select class="form-select" id="fe-status">
+              <option value="todo">Yapılacak</option>
+              <option value="in-progress">Devam Ediyor</option>
+              <option value="waiting-for-approval">Onay Bekliyor</option>
+              <option value="blocked">İlerleyemiyor</option>
+              <option value="done">Tamamlandı</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Atanan</label>
+            <input class="form-input" id="fe-assignee" placeholder="İsim…">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Öncelik</label>
+            <select class="form-select" id="fe-priority">
+              <option value="low">Düşük</option>
+              <option value="medium" selected>Orta</option>
+              <option value="high">Yüksek</option>
+              <option value="critical">Kritik</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Başlangıç</label>
+            <input class="form-input" id="fe-start" type="date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bitiş</label>
+            <input class="form-input" id="fe-end" type="date">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Açıklama (Markdown)</label>
+          <div class="md-toolbar">
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','# ')"    title="H1">H1</button>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','## ')"   title="H2">H2</button>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','### ')"  title="H3">H3</button>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','#### ')" title="H4">H4</button>
+            <span class="md-sep"></span>
+            <button type="button" class="md-btn" onclick="mdWrap('fe-body','**','**')"  title="Kalın"><b>B</b></button>
+            <button type="button" class="md-btn" onclick="mdWrap('fe-body','*','*')"    title="İtalik"><i>I</i></button>
+            <button type="button" class="md-btn" onclick="mdWrap('fe-body','~~','~~')"  title="Üstü Çizgili"><s>S</s></button>
+            <span class="md-sep"></span>
+            <button type="button" class="md-btn" onclick="mdWrap('fe-body','`','`')"   title="Kod" style="font-family:monospace;font-size:13px">&#96;</button>
+            <button type="button" class="md-btn" onclick="mdCodeBlock('fe-body')"      title="Kod bloğu">{ }</button>
+            <span class="md-sep"></span>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','- ')"      title="Madde">•</button>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','1. ')"     title="Numaralı">1.</button>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','- [ ] ')"  title="Görev">☐</button>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','> ')"      title="Alıntı">&ldquo;</button>
+            <span class="md-sep"></span>
+            <button type="button" class="md-btn" onclick="mdLink('fe-body')"           title="Bağlantı">🔗</button>
+            <button type="button" class="md-btn" onclick="mdLine('fe-body','---')"     title="Çizgi">―</button>
+            <span class="md-sep"></span>
+            <button type="button" class="md-btn" onclick="mdTable('fe-body')"          title="Tablo">⊞</button>
+          </div>
+          <textarea class="form-textarea" id="fe-body" placeholder="Notlar, bağlantılar, kontrol listesi…" style="min-height:200px;resize:vertical"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-doc" class="panel-section hidden">
+    <div class="panel-header">
+      <span class="panel-title" id="panel-doc-title" onclick="App.renameDocStart()" title="Yeniden adlandırmak için tıkla" style="cursor:pointer"></span>
+      <div class="panel-actions">
+        <button class="btn btn-ghost btn-sm hidden" id="btn-doc-cancel" onclick="App.cancelDocEdit()">İptal</button>
+        <button class="btn btn-primary btn-sm hidden" id="btn-doc-save" onclick="App.saveDoc()">Kaydet</button>
+        <button class="btn btn-secondary btn-sm" id="btn-doc-edit" onclick="App.toggleDocEdit()">✏ Düzenle</button>
+        <button class="btn btn-secondary btn-sm" onclick="S.detailDoc&&App.duplicateDocById(S.detailDoc.id)" title="Kopyala">📋</button>
+        <button class="btn btn-secondary btn-sm" id="btn-doc-docx" onclick="S.detailDoc&&App.downloadDocx(S.detailDoc)" title="DOCX İndir">⬇ DOCX</button>
+        <button class="btn btn-danger btn-sm"    onclick="App.deleteDoc()">🗑</button>
+        <button class="panel-fs-btn" id="fs-btn-doc" onclick="App.togglePanelFullscreen()" title="Tam Ekran">⛶</button>
+        <button class="panel-close" onclick="App.closePanel()">✕</button>
+      </div>
+    </div>
+    <div class="doc-view-body" id="doc-view-mode">
+      <div id="panel-doc-preview" class="md-preview"></div>
+    </div>
+    <div id="doc-edit-mode" class="doc-edit-wrap hidden">
+      <div style="padding:12px 14px 8px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;border-bottom:1px solid var(--border);background:var(--bg-sidebar);flex-shrink:0">
+        <div class="form-group" style="min-width:150px">
+          <label class="form-label">Geçerlilik</label>
+          <select class="form-select" id="fde-validity" style="font-size:12px;padding:4px 8px">
+            <option value="">— Yok —</option>
+            <option value="bulunmuyor">Bulunmuyor</option>
+            <option value="gecerli">Geçerli</option>
+            <option value="suresiz-gecerli">Süresiz Geçerli</option>
+            <option value="suresi-dolmus">Süresi Dolmuş</option>
+          </select>
+        </div>
+        <div class="form-group" style="min-width:120px">
+          <label class="form-label">Düzenleme Tarihi</label>
+          <input class="form-input" id="fde-issue" type="date" style="font-size:12px;padding:4px 8px">
+        </div>
+        <div class="form-group" style="min-width:120px">
+          <label class="form-label">Bitiş Tarihi</label>
+          <input class="form-input" id="fde-expiry" type="date" style="font-size:12px;padding:4px 8px">
+        </div>
+        <div class="form-group" style="flex:1;min-width:180px">
+          <label class="form-label">Bağlantı</label>
+          <input class="form-input" id="fde-url" type="url" placeholder="https://..." style="font-size:12px;padding:4px 8px">
+        </div>
+      </div>
+      <div class="md-toolbar" style="border-radius:0;border-left:none;border-right:none;border-top:none">
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','# ')"    title="H1">H1</button>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','## ')"   title="H2">H2</button>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','### ')"  title="H3">H3</button>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','#### ')" title="H4">H4</button>
+        <span class="md-sep"></span>
+        <button type="button" class="md-btn" onclick="mdWrap('doc-body-edit','**','**')"  title="Kalın"><b>B</b></button>
+        <button type="button" class="md-btn" onclick="mdWrap('doc-body-edit','*','*')"    title="İtalik"><i>I</i></button>
+        <button type="button" class="md-btn" onclick="mdWrap('doc-body-edit','~~','~~')"  title="Üstü Çizgili"><s>S</s></button>
+        <span class="md-sep"></span>
+        <button type="button" class="md-btn" onclick="mdWrap('doc-body-edit','`','`')"   title="Kod" style="font-family:monospace;font-size:13px">&#96;</button>
+        <button type="button" class="md-btn" onclick="mdCodeBlock('doc-body-edit')"      title="Kod bloğu">{ }</button>
+        <span class="md-sep"></span>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','- ')"      title="Madde">•</button>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','1. ')"     title="Numaralı">1.</button>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','- [ ] ')"  title="Görev">☐</button>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','> ')"      title="Alıntı">&ldquo;</button>
+        <span class="md-sep"></span>
+        <button type="button" class="md-btn" onclick="mdLink('doc-body-edit')"           title="Bağlantı">🔗</button>
+        <button type="button" class="md-btn" onclick="mdLine('doc-body-edit','---')"     title="Çizgi">―</button>
+        <span class="md-sep"></span>
+        <button type="button" class="md-btn" onclick="mdTable('doc-body-edit')"          title="Tablo">⊞</button>
+      </div>
+      <textarea class="form-textarea doc-editor" id="doc-body-edit" placeholder="Doküman içeriğini buraya yazın…"></textarea>
+    </div>
+  </div>
+
+</div>
+<div class="panel-backdrop hidden" id="panel-backdrop" onclick="App.closePanel()"></div>
+
+<div id="toast-area"></div>
+
+<!-- TASK MODAL -->
+<div class="modal-backdrop hidden" id="task-modal-bg" onclick="if(event.target===this)App.closeTaskModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="task-modal-title">Yeni Görev</span>
+      <button class="modal-close" onclick="App.closeTaskModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f-id">
+      <div class="form-group">
+        <label class="form-label">Başlık *</label>
+        <input class="form-input" id="f-title" placeholder="Görev başlığı…">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Proje</label>
+          <select class="form-select" id="f-project"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Durum</label>
+          <select class="form-select" id="f-status">
+            <option value="todo">Yapılacak</option>
+            <option value="in-progress">Devam Ediyor</option>
+            <option value="waiting-for-approval">Onay Bekliyor</option>
+            <option value="blocked">İlerleyemiyor</option>
+            <option value="done">Tamamlandı</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Atanan</label>
+          <input class="form-input" id="f-assignee" placeholder="İsim…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Öncelik</label>
+          <select class="form-select" id="f-priority">
+            <option value="low">Düşük</option>
+            <option value="medium" selected>Orta</option>
+            <option value="high">Yüksek</option>
+            <option value="critical">Kritik</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Başlangıç</label>
+          <input class="form-input" id="f-start" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bitiş</label>
+          <input class="form-input" id="f-end" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Açıklama (Markdown)</label>
+        <div class="md-toolbar">
+          <button type="button" class="md-btn" onclick="mdLine('f-body','# ')"    title="H1">H1</button>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','## ')"   title="H2">H2</button>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','### ')"  title="H3">H3</button>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','#### ')" title="H4">H4</button>
+          <span class="md-sep"></span>
+          <button type="button" class="md-btn" onclick="mdWrap('f-body','**','**')"  title="Kalın"><b>B</b></button>
+          <button type="button" class="md-btn" onclick="mdWrap('f-body','*','*')"    title="İtalik"><i>I</i></button>
+          <button type="button" class="md-btn" onclick="mdWrap('f-body','~~','~~')"  title="Üstü Çizgili"><s>S</s></button>
+          <span class="md-sep"></span>
+          <button type="button" class="md-btn" onclick="mdWrap('f-body','`','`')"   title="Kod" style="font-family:monospace;font-size:13px">&#96;</button>
+          <button type="button" class="md-btn" onclick="mdCodeBlock('f-body')"      title="Kod bloğu">{ }</button>
+          <span class="md-sep"></span>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','- ')"      title="Madde">•</button>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','1. ')"     title="Numaralı">1.</button>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','- [ ] ')"  title="Görev">☐</button>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','> ')"      title="Alıntı">&ldquo;</button>
+          <span class="md-sep"></span>
+          <button type="button" class="md-btn" onclick="mdLink('f-body')"           title="Bağlantı">🔗</button>
+          <button type="button" class="md-btn" onclick="mdLine('f-body','---')"     title="Çizgi">―</button>
+          <span class="md-sep"></span>
+          <button type="button" class="md-btn" onclick="mdTable('f-body')"          title="Tablo">⊞</button>
+        </div>
+        <textarea class="form-textarea" id="f-body" placeholder="Notlar, bağlantılar, kontrol listesi…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm hidden" id="btn-delete" onclick="App.deleteTask()">🗑 Sil</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="App.closeTaskModal()">İptal</button>
+      <button class="btn btn-primary btn-sm" onclick="App.saveTask()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-backdrop hidden" id="proj-modal-bg" onclick="if(event.target===this)App.closeProjectModal()">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title" id="proj-modal-title">Yeni Proje</span>
+      <button class="modal-close" onclick="App.closeProjectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="fp-id">
+      <div class="form-group">
+        <label class="form-label">Proje Adı *</label>
+        <input class="form-input" id="fp-name" placeholder="Proje adı…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Renk</label>
+        <div class="color-row">
+          <input type="color" id="fp-color" value="#B8892E">
+          <span style="font-size:12px;color:var(--text-muted)">Yan menü ve kartlarda gösterilir</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Açıklama</label>
+        <input class="form-input" id="fp-desc" placeholder="Opsiyonel…">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="App.closeProjectModal()">İptal</button>
+      <button class="btn btn-primary btn-sm" onclick="App.saveProject()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOC LIST MODAL (new document list / folder) -->
+<div class="modal-backdrop hidden" id="doc-list-modal-bg" onclick="if(event.target===this)App.closeDocListModal()">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title" id="doc-list-modal-title">Yeni Doküman Listesi</span>
+      <button class="modal-close" onclick="App.closeDocListModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="fdl-id">
+      <div class="form-group">
+        <label class="form-label">Liste Adı *</label>
+        <input class="form-input" id="fdl-name" placeholder="Örn: İdari Dokümanlar…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Renk</label>
+        <div class="color-row">
+          <input type="color" id="fdl-color" value="#8b5cf6">
+          <span style="font-size:12px;color:var(--text-muted)">Yan menüde gösterilir</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="App.closeDocListModal()">İptal</button>
+      <button class="btn btn-primary btn-sm" onclick="App.saveDocList()">Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOC MODAL (new document inside a list) -->
+<div class="modal-backdrop hidden" id="doc-modal-bg" onclick="if(event.target===this)App.closeDocModal()">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <span class="modal-title" id="doc-modal-title">Yeni Doküman</span>
+      <button class="modal-close" onclick="App.closeDocModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Başlık *</label>
+        <input class="form-input" id="fd-title" placeholder="Doküman başlığı…">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="App.closeDocModal()">İptal</button>
+      <button class="btn btn-primary btn-sm" onclick="App.createDoc()">Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const STATUSES = [
+  { id:'todo',                 label:'Yapılacak',                 color:'#8A7856' },
+  { id:'in-progress',          label:'Devam Ediyor',          color:'#B8892E' },
+  { id:'waiting-for-approval', label:'Onay Bekliyor', color:'#D9A23B' },
+  { id:'blocked',              label:'İlerleyemiyor',              color:'#C0503C' },
+  { id:'done',                 label:'Tamamlandı',                 color:'#3E9B6C' },
+];
+const PRI_LABEL = { low:'Düşük', medium:'Orta', high:'Yüksek', critical:'Kritik' };
+const PRI_ORDER = { critical:4, high:3, medium:2, low:1 };
+const PALETTE   = ['#B8892E','#8C6A2C','#C9A66B','#3E9B6C','#D9A23B','#C0503C','#5C8AAE'];
+
+const S = {
+  dir:null, projects:[], tasks:[], documents:[], docLists:[],
+  view:'kanban', viewType:'task', query:'',
+  filterProj:null, filterAssignee:null, filterDocList:null, filterStatus:'active',
+  sortField:'end_date', sortDir:'asc',
+  detailTask:null, detailDoc:null, editTask:null,
+  dragging:null, isDragging:false, docEditMode:false, taskEditMode:false, panelFullscreen:false,
+  sCollapsed:{ projects:false, documents:false, assignees:false, archivedProjects:false },
+};
+
+// ── FILE SYSTEM ────────────────────────────────────────────────────────────
+async function fsPickDir() {
+  try { return await window.showDirectoryPicker({ mode:'readwrite' }); }
+  catch(e) { if(e.name!=='AbortError') toast('Klasör açılamadı: '+e.message,'err'); return null; }
+}
+async function fsRead(dh,name) {
+  try { const f=await(await dh.getFileHandle(name)).getFile(); return await f.text(); }
+  catch(e) { if(e.name==='NotFoundError') return null; throw e; }
+}
+async function fsWrite(dh,name,content) {
+  const fh=await dh.getFileHandle(name,{create:true});
+  const w=await fh.createWritable(); await w.write(content); await w.close();
+}
+async function fsDelete(dh,name) { await dh.removeEntry(name); }
+async function fsList(dh) {
+  const out=[]; for await(const [n,h] of dh) out.push({n,h}); return out;
+}
+async function fsDir(parent,name) { return await parent.getDirectoryHandle(name,{create:true}); }
+
+// ── MARKDOWN / YAML ────────────────────────────────────────────────────────
+function parseMd(text) {
+  const m=text.replace(/^\uFEFF/,'').match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/);
+  if(!m) return {fm:{},body:text.trim()};
+  const fm=jsyaml.load(m[1],{schema:jsyaml.JSON_SCHEMA})||{};
+  if(typeof fm!=='object'||Array.isArray(fm)) throw new Error('Markdown üst bilgisi geçerli bir kayıt değil.');
+  return {fm,body:m[2].trim()};
+}
+function taskToMd(t) {
+  const fm={id:t.id,title:t.title,project:t.project,status:t.status,
+    assignee:t.assignee||'',priority:t.priority||'medium',
+    start_date:t.start_date||'',end_date:t.end_date||'',
+    created_at:t.created_at||isoDate(),updated_at:isoDateTime()};
+  return `---\n${jsyaml.dump(fm,{lineWidth:-1})}---\n\n${t.body||''}`;
+}
+function docToMd(doc) {
+  const fm={id:doc.id,title:doc.title,created_at:doc.created_at||isoDate(),updated_at:isoDateTime()};
+  if(doc.validity_status) fm.validity_status=doc.validity_status;
+  if(doc.issue_date)     fm.issue_date=doc.issue_date;
+  if(doc.expiry_date)    fm.expiry_date=doc.expiry_date;
+  if(doc.url)            fm.url=doc.url;
+  return `---\n${jsyaml.dump(fm,{lineWidth:-1})}---\n\n${doc.body||''}`;
+}
+function projectsToMd(projects) {
+  const d={projects:projects.map(p=>{
+    const o={id:p.id,name:p.name,color:p.color,description:p.description||''};
+    if(p.archived) o.archived=true;
+    return o;
+  })};
+  return `---\n${jsyaml.dump(d,{lineWidth:-1})}---\n\n# Projeler\n`;
+}
+function docListsToMd(lists) {
+  const d={doc_lists:lists.map(l=>({id:l.id,name:l.name,color:l.color}))};
+  return `---\n${jsyaml.dump(d,{lineWidth:-1})}---\n\n# Doküman Listeleri\n`;
+}
+
+// ── DATE ───────────────────────────────────────────────────────────────────
+function isoDate() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function isoDateTime() { const d=new Date(); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function formatDate(s) {
+  const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?`${m[3]}/${m[2]}/${m[1]}`:'—';
+}
+function formatDateTime(s) {
+  const m=String(s||'').match(/^(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?$/);
+  return m?formatDate(m[1])+(m[2]?' '+m[2]:''):'—';
+}
+function dateStatus(s,taskStatus) {
+  if(!s||taskStatus==='done') return null;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const d=new Date(s+'T00:00:00');
+  const diff=Math.floor((d-today)/86400000);
+  if(diff<0) return 'overdue'; if(diff<=5) return 'due-soon'; return 'on-track';
+}
+function dateBadge(s,taskStatus) {
+  if(!s) return ''; const st=dateStatus(s,taskStatus);
+  const cls=st==='overdue'?'date-red':st==='due-soon'?'date-yellow':st==='on-track'?'date-green':'date-none';
+  return `<span class="date-tag ${cls}">📅 ${formatDate(s)}</span>`;
+}
+function dateCellClass(s,taskStatus) {
+  const st=dateStatus(s,taskStatus);
+  if(st==='overdue') return 'td-date td-date-red';
+  if(st==='due-soon') return 'td-date td-date-yellow';
+  if(st==='on-track') return 'td-date td-date-green';
+  return 'td-date td-date-none';
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function slugify(s) {
+  return (s||'').toLowerCase()
+    .replace(/[ğ]/g,'g').replace(/[ş]/g,'s').replace(/[ı]/g,'i')
+    .replace(/[ç]/g,'c').replace(/[ö]/g,'o').replace(/[ü]/g,'u')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'item';
+}
+function uid() { return crypto.randomUUID().replace(/-/g,'').slice(0,8); }
+function x(s) {
+  return (s||'').toString()
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Encode JavaScript values separately from their containing HTML attribute.
+function jsArg(value) { return x(JSON.stringify(String(value??''))); }
+function safeColor(value) { return /^#[0-9a-f]{6}$/i.test(String(value))?value:'#5b6fc7'; }
+function safeUrl(value) {
+  const text=String(value||'').trim();
+  if(!/^https?:\/\//i.test(text)||/[\\\u0000-\u0020]/.test(text)) return '';
+  try { const url=new URL(text); return ['http:','https:'].includes(url.protocol)?url.href:''; } catch { return ''; }
+}
+function safeMarkdown(value) {
+  return DOMPurify.sanitize(marked.parse(String(value||'')), {
+    USE_PROFILES:{html:true}, FORBID_TAGS:['img','video','audio','iframe','form','style','input','button'],
+    FORBID_ATTR:['style','src','srcset','poster','background'], ALLOW_DATA_ATTR:false
+  });
+}
+function validFolderName(value, root=false) {
+  const name=String(value||'');
+  if(!name||name.length>120||/^[._]/.test(name)||/[<>:"/\\|?*\u0000-\u001f]/.test(name)||/[. ]$/.test(name)||/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)||(root&&name.toLowerCase()==='documents'))
+    throw new Error('Geçerli bir klasör adı girin. Nokta veya alt çizgiyle başlamayın; ayrılmış adları ve özel karakterleri kullanmayın.');
+  return name;
+}
+
+// ── LOAD ───────────────────────────────────────────────────────────────────
+async function loadAll(renderAfter=true) {
+  await loadProjects(); await loadTasks(); await loadDocLists(); await loadDocuments();
+  if(renderAfter) render();
+}
+async function loadProjects() {
+  const text=await fsRead(S.dir,'projects.md');
+  if(!text){S.projects=[];return;}
+  const{fm}=parseMd(text);
+  S.projects=(fm.projects||[]).map(p=>({id:p.id||uid(),name:p.name||'Adsız',color:p.color||'#B8892E',description:p.description||'',archived:p.archived===true}));
+}
+async function loadTasks() {
+  S.tasks=[];
+  for(const{n,h} of await fsList(S.dir)) {
+    if(h.kind!=='directory'||n.startsWith('.')||n.startsWith('_')||n==='documents') continue;
+    for(const{n:fn,h:fh} of await fsList(h)) {
+      if(!fn.endsWith('.md')) continue;
+      const text=await(await fh.getFile()).text();
+      const{fm,body}=parseMd(text); if(!fm.title) continue;
+      S.tasks.push({...fm,project:n,body,_file:fn,_projDir:n,_dh:h});
+    }
+  }
+}
+async function loadDocLists() {
+  S.docLists=[];
+  let docRoot;
+  try { docRoot=await S.dir.getDirectoryHandle('documents',{create:false}); }
+  catch { return; }
+  const text=await fsRead(docRoot,'doc-lists.md');
+  if(text) {
+    const{fm}=parseMd(text);
+    S.docLists=(fm.doc_lists||[]).map(l=>({id:l.id||uid(),name:l.name,color:l.color||'#8b5cf6'}));
+  } else {
+    // discover folders if no metadata file
+    for(const{n,h} of await fsList(docRoot)) {
+      if(h.kind==='directory'&&!n.startsWith('.'))
+        S.docLists.push({id:uid(),name:n,color:PALETTE[S.docLists.length%PALETTE.length]});
+    }
+  }
+  S.docLists.sort((a,b)=>a.name.localeCompare(b.name));
+}
+async function loadDocuments() {
+  S.documents=[];
+  let docRoot;
+  try { docRoot=await S.dir.getDirectoryHandle('documents',{create:false}); }
+  catch { return; }
+  for(const list of S.docLists) {
+    let listDir;
+    try { listDir=await docRoot.getDirectoryHandle(list.name,{create:false}); }
+    catch { continue; }
+    for(const{n:fn,h:fh} of await fsList(listDir)) {
+      if(!fn.endsWith('.md')) continue;
+      const text=await(await fh.getFile()).text();
+      const{fm,body}=parseMd(text); if(!fm.title) continue;
+      S.documents.push({...fm,body,_file:fn,_listName:list.name,_dh:listDir});
+    }
+  }
+}
+
+// ── PERSIST ────────────────────────────────────────────────────────────────
+async function persistTask(t) {
+  const proj=t.project||'Genel';
+  const dh=await fsDir(S.dir,proj);
+  t._dh=dh; t._projDir=proj;
+  if(!t._file) t._file=`${slugify(t.title)}-${uid()}.md`;
+  await fsWrite(dh,t._file,taskToMd(t));
+}
+async function persistProjects() { await fsWrite(S.dir,'projects.md',projectsToMd(S.projects)); }
+async function persistDocLists() {
+  const docRoot=await fsDir(S.dir,'documents');
+  await fsWrite(docRoot,'doc-lists.md',docListsToMd(S.docLists));
+}
+async function persistDocument(doc) {
+  const docRoot=await fsDir(S.dir,'documents');
+  const listDir=await fsDir(docRoot,doc._listName);
+  doc._dh=listDir;
+  if(!doc._file) doc._file=`${slugify(doc.title)}-${uid()}.md`;
+  await fsWrite(listDir,doc._file,docToMd(doc));
+}
+
+// ── FILTER / SORT ──────────────────────────────────────────────────────────
+function filtered() {
+  let ts=[...S.tasks];
+  if(S.query) {
+    const q=S.query.toLowerCase();
+    ts=ts.filter(t=>(t.title||'').toLowerCase().includes(q)||(t.assignee||'').toLowerCase().includes(q)||(t.body||'').toLowerCase().includes(q));
+  }
+  if(S.filterProj)     ts=ts.filter(t=>t.project===S.filterProj);
+  if(S.filterAssignee) ts=ts.filter(t=>t.assignee===S.filterAssignee);
+  // Status filter only when no specific project selected
+  if(!S.filterProj) {
+    if(S.filterStatus==='active') ts=ts.filter(t=>t.status!=='done');
+    if(S.filterStatus==='archived') ts=ts.filter(t=>t.status==='done');
+    // Exclude tasks from archived projects
+    const archivedNames=new Set(S.projects.filter(p=>p.archived).map(p=>p.name));
+    ts=ts.filter(t=>!archivedNames.has(t.project));
+  }
+  ts.sort((a,b)=>{
+    let va=S.sortField==='priority'?(PRI_ORDER[a.priority]||0):(a[S.sortField]||'');
+    let vb=S.sortField==='priority'?(PRI_ORDER[b.priority]||0):(b[S.sortField]||'');
+    // Push empty values to end for date fields
+    if(S.sortField==='end_date'||S.sortField==='start_date') {
+      if(!va&&!vb) return 0;
+      if(!va) return 1;
+      if(!vb) return -1;
+    }
+    if(va<vb) return S.sortDir==='asc'?-1:1;
+    if(va>vb) return S.sortDir==='asc'?1:-1;
+    return 0;
+  });
+  return ts;
+}
+function projColor(name) {
+  const p=S.projects.find(p=>p.name===name);
+  if(p) return safeColor(p.color);
+  let h=0; for(const c of(name||'')) h=(Math.imul(31,h)+c.charCodeAt(0))|0;
+  return PALETTE[Math.abs(h)%PALETTE.length];
+}
+function docListColor(name) {
+  const l=S.docLists.find(l=>l.name===name);
+  return l?safeColor(l.color):'#8b5cf6';
+}
+function statusInfo(id) { return STATUSES.find(s=>s.id===id)||STATUSES[0]; }
+function uniqueAssignees() { return [...new Set(S.tasks.map(t=>t.assignee).filter(Boolean))].sort(); }
+
+// ── SIDEBAR COLLAPSE ───────────────────────────────────────────────────────
+function toggleSection(id) {
+  S.sCollapsed[id]=!S.sCollapsed[id];
+  const body=document.getElementById(`s-body-${id}`);
+  const caret=document.getElementById(`caret-${id}`);
+  body.classList.toggle('hidden',S.sCollapsed[id]);
+  caret.classList.toggle('open',!S.sCollapsed[id]);
+  caret.classList.toggle('closed',S.sCollapsed[id]);
+  caret.textContent=S.sCollapsed[id]?'▸':'▾';
+}
+
+// ── VALIDITY ────────────────────────────────────────────────────────────────
+const VAL_LABEL={bulunmuyor:'Bulunmuyor',gecerli:'Geçerli','suresiz-gecerli':'Süresiz Geçerli','suresi-dolmus':'Süresi Dolmuş'};
+const VAL_CLS={bulunmuyor:'val-bulunmuyor',gecerli:'val-gecerli','suresiz-gecerli':'val-suresiz-gecerli','suresi-dolmus':'val-suresi-dolmus'};
+function getValidity(doc) {
+  // If expiry_date is set and in the past, force suresi-dolmus
+  if(doc.expiry_date) {
+    const today=new Date(); today.setHours(0,0,0,0);
+    const d=new Date(doc.expiry_date+'T00:00:00');
+    if(d<today) return {label:VAL_LABEL['suresi-dolmus'],cls:VAL_CLS['suresi-dolmus']};
+  }
+  const vs=doc.validity_status||'';
+  if(VAL_LABEL[vs]) return {label:VAL_LABEL[vs],cls:VAL_CLS[vs]};
+  return null;
+}
+function render() { renderSidebar(); if(S.viewType==='doc') renderDocListView(); else if(S.view==='kanban') renderKanban(); else renderList(); }
+
+function renderSidebar() {
+  const ts=S.tasks.filter(t=>{
+    if(S.query){const q=S.query.toLowerCase();if(!(t.title||'').toLowerCase().includes(q)&&!(t.assignee||'').toLowerCase().includes(q)&&!(t.body||'').toLowerCase().includes(q)) return false;}
+    if(S.filterProj&&t.project!==S.filterProj) return false;
+    return true;
+  });
+  const allActive=S.tasks.filter(t=>t.status!=='done'&&!S.projects.find(p=>p.name===t.project)?.archived).length;
+  const allDone=S.tasks.filter(t=>t.status==='done'&&!S.projects.find(p=>p.name===t.project)?.archived).length;
+
+  // Projects
+  const projNames=[...new Set([...S.projects.map(p=>p.name),...S.tasks.map(t=>t.project)].filter(Boolean))];
+  let ph=`<div class="s-item ${!S.filterProj&&S.filterStatus==='active'&&S.viewType==='task'?'active':''}" onclick="App.filterProj(null)">
+    <span>📋 Yapılacaklar</span><span class="s-count">${allActive}</span></div>`;
+  for(const n of projNames) {
+    const proj=S.projects.find(p=>p.name===n);
+    if(proj?.archived) continue; // skip archived in main list
+    const cnt=S.tasks.filter(t=>t.project===n).length;
+    const c=projColor(n);
+    const pid=proj?proj.id:'';
+    ph+=`<div class="s-item ${S.filterProj===n&&S.viewType==='task'?'active':''}" onclick="App.filterProj(${jsArg(n)})">
+      <div class="s-chip" style="background:${c}">${x(n[0]?.toUpperCase()||'?')}</div>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${x(n)}</span>
+      <span class="s-count">${cnt}</span>
+      <button class="s-item-del" onclick="event.stopPropagation();App.editProjectById(${jsArg(pid)})" title="Düzenle">✎</button>
+      <button class="s-item-del" onclick="event.stopPropagation();App.archiveProject(${jsArg(pid)})" title="Arşivle">📦</button>
+      <button class="s-item-del" onclick="event.stopPropagation();App.deleteProject(${jsArg(pid)})" title="Projeyi Sil">🗑</button>
+    </div>`;
+  }
+  ph+=`<div class="s-item ${!S.filterProj&&S.filterStatus==='archived'&&S.viewType==='task'?'active':''}" onclick="App.filterProj(null,'archived')">
+    <span>🗄 Arşiv</span><span class="s-count">${allDone}</span></div>`;
+  document.getElementById('s-projects').innerHTML=ph;
+
+  // Archived projects section
+  const archived=S.projects.filter(p=>p.archived);
+  let aph='';
+  if(archived.length) {
+    const ac=S.sCollapsed.archivedProjects;
+    aph=`<div class="s-section">
+      <div class="s-section-header" onclick="App.toggleSection('archivedProjects')">
+        <span class="s-caret ${ac?'closed':'open'}" id="caret-archivedProjects">${ac?'▸':'▾'}</span>
+        <span class="s-section-label">📦 Arşivlenmiş Projeler</span>
+      </div>
+      <div class="s-body ${ac?'hidden':''}" id="s-body-archivedProjects">`;
+    for(const p of archived) {
+      const cnt=S.tasks.filter(t=>t.project===p.name).length;
+      aph+=`<div class="s-item" onclick="App.filterProj(${jsArg(p.name)})">
+        <div class="s-chip" style="background:${safeColor(p.color)};opacity:.7">${x(p.name[0]?.toUpperCase()||'?')}</div>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;opacity:.7">${x(p.name)}</span>
+        <span class="s-count">${cnt}</span>
+        <button class="s-item-del" onclick="event.stopPropagation();App.unarchiveProject(${jsArg(p.id)})" title="Geri Getir">↩</button>
+      </div>`;
+    }
+    aph+='</div></div>';
+  }
+  document.getElementById('s-archived-projects').innerHTML=aph;
+
+  // Doc lists
+  let dh='';
+  if(!S.docLists.length) {
+    dh='<div style="padding:4px 7px;font-size:12px;color:var(--text-muted)">Henüz liste yok</div>';
+  }
+  for(const list of S.docLists) {
+    const cnt=S.documents.filter(d=>d._listName===list.name).length;
+    dh+=`<div class="s-item ${S.filterDocList===list.name&&S.viewType==='doc'?'active':''}" onclick="App.openDocListView(${jsArg(list.name)})">
+      <div class="s-chip" style="background:${safeColor(list.color)}">${x(list.name[0]?.toUpperCase()||'?')}</div>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${x(list.name)}</span>
+      <span class="s-count">${cnt}</span>
+      <button class="s-item-del" onclick="event.stopPropagation();App.editDocListById(${jsArg(list.id)})" title="Düzenle">✎</button>
+      <button class="s-item-del" onclick="event.stopPropagation();App.deleteDocList(${jsArg(list.id)})" title="Listeyi Sil">🗑</button>
+    </div>`;
+  }
+  document.getElementById('s-documents').innerHTML=dh;
+
+  // Assignees
+  const assignees=uniqueAssignees();
+  let ah=`<div class="s-item ${!S.filterAssignee?'active':''}" onclick="App.filterAssignee(null)"><span>Tümü</span></div>`;
+  for(const a of assignees) {
+    ah+=`<div class="s-item ${S.filterAssignee===a?'active':''}" onclick="App.filterAssignee(${jsArg(a)})">
+      <div class="avatar">${x(a[0].toUpperCase())}</div><span>${x(a)}</span></div>`;
+  }
+  document.getElementById('s-assignees').innerHTML=ah;
+}
+
+function renderKanban() {
+  const ts=filtered();
+  let html='<div class="kanban-board">';
+  for(const st of STATUSES) {
+    const cols=ts.filter(t=>t.status===st.id);
+    html+=`<div class="k-col">
+      <div class="k-col-header">
+        <div class="k-col-dot" style="background:${st.color}"></div>
+        <span class="k-col-title">${st.label}</span>
+        <span class="k-col-count">${cols.length}</span>
+      </div>
+      <div class="k-cards" id="col-${st.id}"
+        ondragover="App.dragOver(event,'${st.id}')"
+        ondragleave="App.dragLeave(event)"
+        ondrop="App.drop(event,'${st.id}')">
+        ${cols.map(t=>cardHtml(t)).join('')}
+      </div>
+      <div class="k-add">
+        <button class="k-add-btn" onclick="App.openTaskModal(null,'${st.id}')">＋ Ekle</button>
+      </div>
+    </div>`;
+  }
+  html+='</div>';
+  document.getElementById('kanban-root').innerHTML=html;
+}
+
+function cardHtml(t) {
+  const color=projColor(t.project);
+  return `<div class="task-card" data-id="${x(t.id)}" draggable="true"
+    ondragstart="App.dragStart(event,${jsArg(t.id)})" ondragend="App.dragEnd(event)"
+    onclick="App.openPanel('task',${jsArg(t.id)})">
+    <button class="card-edit-btn" onclick="event.stopPropagation();App.openTaskEditPanel(${jsArg(t.id)})" style="right:59px">✏</button>
+    <button class="card-edit-btn" onclick="event.stopPropagation();App.duplicateTaskById(${jsArg(t.id)})" style="right:33px" title="Kopyala">📋</button>
+    <button class="card-edit-btn" onclick="event.stopPropagation();App.deleteTaskById(${jsArg(t.id)})" style="right:7px;color:#C0503C">🗑</button>
+    <div class="card-title">${x(t.title)}</div>
+    <div class="card-meta">
+      ${t.project?`<span class="tag tag-proj" style="border-color:${color}">${x(t.project)}</span>`:''}
+      ${t.priority?`<span class="tag tag-${Object.hasOwn(PRI_LABEL,t.priority)?t.priority:'medium'}">${PRI_LABEL[t.priority]||'—'}</span>`:''}
+      ${dateBadge(t.end_date,t.status)}
+      ${t.assignee?`<span class="assignee-tag"><div class="avatar">${x(t.assignee[0].toUpperCase())}</div>${x(t.assignee)}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function renderList() {
+  const ts=filtered();
+  const sa=(f)=>S.sortField===f?(S.sortDir==='asc'?' ▲':' ▼'):'';
+  const th=(label,f)=>`<th onclick="App.sort('${f}')">${label}${sa(f)}</th>`;
+  const root=document.getElementById('list-root');
+  if(!ts.length) {
+    root.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><h3>Görev bulunamadı</h3><p>Filtre değiştir veya yeni görev ekle.</p></div>`;
+    return;
+  }
+  root.innerHTML=`<div class="list-wrap"><table class="list-table">
+    <thead><tr>${th('Başlık','title')}${th('Proje','project')}${th('Durum','status')}${th('Atanan','assignee')}${th('Öncelik','priority')}${th('Başlangıç','start_date')}${th('Bitiş','end_date')}<th>İşlem</th></tr></thead>
+    <tbody>${ts.map(t=>rowHtml(t)).join('')}</tbody>
+  </table></div>`;
+}
+
+function rowHtml(t) {
+  const st=statusInfo(t.status); const color=projColor(t.project);
+  const sc=t.start_date?dateCellClass(t.start_date,t.status):'td-date td-date-none';
+  const ec=t.end_date?dateCellClass(t.end_date,t.status):'td-date td-date-none';
+  return `<tr>
+    <td style="font-weight:600;max-width:260px;cursor:pointer" onclick="App.openPanel('task',${jsArg(t.id)})">${x(t.title)}</td>
+    <td style="cursor:pointer" onclick="App.openPanel('task',${jsArg(t.id)})">${t.project?`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span>${x(t.project)}</span>`:'—'}</td>
+    <td style="cursor:pointer" onclick="App.openPanel('task',${jsArg(t.id)})"><span class="status-badge" style="background:${st.color}20;color:${st.color}"><span class="status-dot" style="background:${st.color}"></span>${st.label}</span></td>
+    <td style="cursor:pointer" onclick="App.openPanel('task',${jsArg(t.id)})">${t.assignee?`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px"><div class="avatar">${x(t.assignee[0].toUpperCase())}</div>${x(t.assignee)}</span>`:'—'}</td>
+    <td style="cursor:pointer" onclick="App.openPanel('task',${jsArg(t.id)})">${t.priority?`<span class="tag tag-${Object.hasOwn(PRI_LABEL,t.priority)?t.priority:'medium'}">${PRI_LABEL[t.priority]||'—'}</span>`:'—'}</td>
+    <td class="${sc}" style="cursor:pointer" onclick="App.openPanel('task',${jsArg(t.id)})">${t.start_date?formatDate(t.start_date):'—'}</td>
+    <td class="${ec}" style="cursor:pointer" onclick="App.openPanel('task',${jsArg(t.id)})">${t.end_date?formatDate(t.end_date):'—'}</td>
+    <td style="white-space:nowrap;text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();App.openTaskEditPanel(${jsArg(t.id)})" title="Düzenle" style="margin-right:4px">✏</button>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();App.duplicateTaskById(${jsArg(t.id)})" title="Kopyala" style="margin-right:4px">📋</button>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();App.deleteTaskById(${jsArg(t.id)})" title="Sil" style="color:#C0503C">🗑</button>
+    </td>
+  </tr>`;
+}
+
+// ── DOC LIST VIEW ──────────────────────────────────────────────────────────
+function openDocListView(listName) {
+  S.viewType='doc'; S.filterDocList=listName;
+  document.getElementById('kanban-root').classList.add('hidden');
+  document.getElementById('list-root').classList.add('hidden');
+  document.getElementById('doc-list-root').classList.remove('hidden');
+  document.getElementById('view-toggle').classList.add('hidden');
+  document.getElementById('btn-new-task').classList.add('hidden');
+  document.getElementById('btn-new-doc').classList.remove('hidden');
+  renderDocListView();
+  renderSidebar();
+}
+
+function switchToTaskView() {
+  S.viewType='task'; S.filterDocList=null; S.filterStatus='active';
+  document.getElementById('kanban-root').classList.toggle('hidden',S.view!=='kanban');
+  document.getElementById('list-root').classList.toggle('hidden',S.view!=='list');
+  document.getElementById('doc-list-root').classList.add('hidden');
+  document.getElementById('view-toggle').classList.remove('hidden');
+  document.getElementById('btn-new-task').classList.remove('hidden');
+  document.getElementById('btn-new-doc').classList.add('hidden');
+}
+
+function renderDocListView() {
+  const list=S.docLists.find(l=>l.name===S.filterDocList);
+  const q=S.query.toLocaleLowerCase('tr');
+  const docs=S.documents.filter(d=>d._listName===S.filterDocList&&(!q||[d.title,d.body].some(v=>String(v||'').toLocaleLowerCase('tr').includes(q))));
+  docs.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  const root=document.getElementById('doc-list-root');
+  const color=list?safeColor(list.color):'#8b5cf6';
+  let html=`<div class="doc-list-header">
+    <h2><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:2px"></span>${x(S.filterDocList)}</h2>
+  </div>`;
+  if(!docs.length) {
+    html+=`<div class="empty"><div class="empty-icon">📄</div><h3>Doküman yok</h3><p>Sağ üstteki "+ Yeni Doküman" ile ekle.</p></div>`;
+  } else {
+    html+=`<div class="list-wrap"><table class="list-table">
+      <thead><tr>
+        <th>Başlık</th>
+        <th>Geçerlilik</th>
+        <th>Oluşturuldu</th>
+        <th>Güncellendi</th>
+        <th>İşlem</th>
+      </tr></thead>
+      <tbody>${docs.map(doc=>{
+        const v=getValidity(doc);
+        return `
+        <tr>
+          <td style="font-weight:600;cursor:pointer" onclick="App.openPanel('doc',${jsArg(doc.id)})"><span style="margin-right:6px;opacity:.6">📄</span>${x(doc.title)}</td>
+          <td style="cursor:pointer" onclick="App.openPanel('doc',${jsArg(doc.id)})">${v?`<span class="val-badge ${v.cls}">${v.label}</span>`:'—'}</td>
+          <td class="td-date td-date-none" style="cursor:pointer" onclick="App.openPanel('doc',${jsArg(doc.id)})">${formatDate(doc.created_at)}</td>
+          <td class="td-date td-date-none" style="cursor:pointer" onclick="App.openPanel('doc',${jsArg(doc.id)})">${formatDateTime(doc.updated_at)}</td>
+          <td style="white-space:nowrap;text-align:right">
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();App.openPanel('doc',${jsArg(doc.id)});setTimeout(()=>App.toggleDocEdit(),80)" title="Düzenle" style="margin-right:4px">✏</button>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();App.duplicateDocById(${jsArg(doc.id)})" title="Kopyala" style="margin-right:4px">📋</button>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();App.deleteDocById(${jsArg(doc.id)})" title="Sil" style="color:#C0503C">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table></div>`;
+  }
+  root.innerHTML=html;
+}
+
+// ── SIDE PANEL ─────────────────────────────────────────────────────────────
+function openPanel(type,id) {
+  if(S.isDragging) return;
+  document.getElementById('panel-task').classList.add('hidden');
+  document.getElementById('panel-doc').classList.add('hidden');
+  if(type==='task') {
+    const t=S.tasks.find(t=>t.id===id); if(!t) return;
+    S.detailTask=t; S.taskEditMode=false;
+    document.getElementById('panel-task').classList.remove('hidden');
+    document.getElementById('task-view-mode').classList.remove('hidden');
+    document.getElementById('task-edit-mode').classList.add('hidden');
+    document.getElementById('btn-task-edit').textContent='✏ Düzenle';
+    document.getElementById('panel-task-title').textContent=t.title;
+    document.querySelectorAll('.p-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab==='preview'));
+    document.querySelectorAll('.panel-tab-pane').forEach(el=>el.classList.toggle('active',el.dataset.pane==='preview'));
+    renderPanelTaskTab('preview');
+  } else {
+    const doc=S.documents.find(d=>d.id===id); if(!doc) return;
+    S.detailDoc=doc; S.docEditMode=false;
+    document.getElementById('panel-doc').classList.remove('hidden');
+    document.getElementById('panel-doc-title').textContent=doc.title;
+    document.getElementById('doc-view-mode').classList.remove('hidden');
+    document.getElementById('doc-edit-mode').classList.add('hidden');
+    document.getElementById('btn-doc-edit').textContent='✏ Düzenle';
+    renderDocPreview(doc);
+  }
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('panel-backdrop').classList.remove('hidden');
+}
+
+function closePanel() {
+  const panel=document.getElementById('side-panel');
+  panel.classList.remove('open','panel-fullscreen');
+  document.getElementById('panel-backdrop').classList.remove('fs-hidden','hidden');
+  document.getElementById('panel-backdrop').classList.add('hidden');
+  S.detailTask=null; S.detailDoc=null; S.docEditMode=false; S.taskEditMode=false; S.panelFullscreen=false;
+  ['fs-btn-task','fs-btn-doc'].forEach(id=>{const el=document.getElementById(id);if(el)el.title='Tam Ekran';el&&(el.textContent='⛶');});
+}
+
+function togglePanelFullscreen() {
+  S.panelFullscreen=!S.panelFullscreen;
+  const panel=document.getElementById('side-panel');
+  const backdrop=document.getElementById('panel-backdrop');
+  panel.classList.toggle('panel-fullscreen',S.panelFullscreen);
+  if(S.panelFullscreen) { backdrop.classList.add('fs-hidden'); }
+  else { backdrop.classList.remove('fs-hidden'); }
+  const icon=S.panelFullscreen?'⊡':'⛶';
+  const ttip=S.panelFullscreen?'Küçült':'Tam Ekran';
+  ['fs-btn-task','fs-btn-doc'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent=icon;el.title=ttip;}
+  });
+}
+
+function renderPanelTaskTab(name) {
+  document.querySelectorAll('.p-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===name));
+  document.querySelectorAll('.panel-tab-pane').forEach(el=>el.classList.toggle('active',el.dataset.pane===name));
+  const t=S.detailTask; if(!t) return;
+  if(name==='preview') {
+    const st=statusInfo(t.status); const c=projColor(t.project);
+    const bodyHtml=t.body
+      ?`<div class="md-preview">${safeMarkdown(t.body)}</div>`
+      :'<p class="md-empty">Açıklama yok.</p>';
+    document.getElementById('panel-tab-preview').innerHTML=`
+      <div class="meta-grid" style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+        <div class="meta-item"><span class="meta-label">Proje</span>
+          <span class="meta-value" style="display:flex;align-items:center;gap:6px">
+            <span style="width:9px;height:9px;border-radius:50%;background:${c};display:inline-block"></span>${x(t.project||'—')}
+          </span></div>
+        <div class="meta-item"><span class="meta-label">Durum</span>
+          <span class="status-badge" style="background:${st.color}20;color:${st.color};width:fit-content">
+            <span class="status-dot" style="background:${st.color}"></span>${st.label}</span></div>
+        <div class="meta-item"><span class="meta-label">Atanan</span><span class="meta-value">${x(t.assignee||'—')}</span></div>
+        <div class="meta-item"><span class="meta-label">Öncelik</span><span class="meta-value">${PRI_LABEL[t.priority]||'—'}</span></div>
+        <div class="meta-item"><span class="meta-label">Başlangıç</span><span class="meta-value">${formatDate(t.start_date)}</span></div>
+        <div class="meta-item"><span class="meta-label">Bitiş</span><span class="meta-value">${formatDate(t.end_date)}</span></div>
+        <div class="meta-item"><span class="meta-label">Oluşturuldu</span><span class="meta-value">${formatDate(t.created_at)}</span></div>
+        <div class="meta-item"><span class="meta-label">Güncellendi</span><span class="meta-value">${formatDateTime(t.updated_at)}</span></div>
+      </div>
+      ${bodyHtml}`;
+  }
+  if(name==='raw') {
+    document.getElementById('panel-tab-raw').innerHTML=`<div class="raw-md">${x(taskToMd(t))}</div>`;
+  }
+}
+
+// ── TASK PANEL EDIT ───────────────────────────────────────────────────────
+function openTaskEditPanel(id) {
+  const t=S.tasks.find(t=>t.id===id); if(!t) return;
+  document.getElementById('panel-task').classList.remove('hidden');
+  document.getElementById('panel-doc').classList.add('hidden');
+  S.detailTask=t; S.detailDoc=null; S.taskEditMode=true;
+  document.getElementById('panel-task-title').textContent=t.title;
+  document.getElementById('task-view-mode').classList.add('hidden');
+  document.getElementById('task-edit-mode').classList.remove('hidden');
+  document.getElementById('btn-task-edit').textContent='← Önizle';
+  document.getElementById('btn-task-save').classList.remove('hidden');
+  document.getElementById('btn-task-cancel').classList.remove('hidden');
+  // Fill form
+  document.getElementById('fe-id').value=t.id;
+  document.getElementById('fe-title').value=t.title||'';
+  document.getElementById('fe-assignee').value=t.assignee||'';
+  document.getElementById('fe-priority').value=t.priority||'medium';
+  document.getElementById('fe-start').value=t.start_date||'';
+  document.getElementById('fe-end').value=t.end_date||'';
+  document.getElementById('fe-body').value=t.body||'';
+  document.getElementById('fe-status').value=t.status||'todo';
+  const names=[...new Set([...S.projects.map(p=>p.name),...S.tasks.map(t=>t.project).filter(Boolean)])];
+  const sel=document.getElementById('fe-project');
+  sel.innerHTML='<option value="">— Proje seç —</option>'+names.map(n=>`<option value="${x(n)}">${x(n)}</option>`).join('');
+  sel.value=t.project||S.filterProj||'';
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('panel-backdrop').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('fe-title').focus(),100);
+}
+function toggleTaskEdit() {
+  const t=S.detailTask; if(!t) return;
+  S.taskEditMode=!S.taskEditMode;
+  const v=document.getElementById('task-view-mode');
+  const e=document.getElementById('task-edit-mode');
+  const btn=document.getElementById('btn-task-edit');
+  if(S.taskEditMode) {
+    v.classList.add('hidden'); e.classList.remove('hidden');
+    document.getElementById('fe-title').value=t.title||'';
+    document.getElementById('fe-project').value=t.project||'';
+    document.getElementById('fe-status').value=t.status||'todo';
+    document.getElementById('fe-assignee').value=t.assignee||'';
+    document.getElementById('fe-priority').value=t.priority||'medium';
+    document.getElementById('fe-start').value=t.start_date||'';
+    document.getElementById('fe-end').value=t.end_date||'';
+    document.getElementById('fe-body').value=t.body||'';
+    const names=[...new Set([...S.projects.map(p=>p.name),...S.tasks.map(t=>t.project).filter(Boolean)])];
+    const sel=document.getElementById('fe-project');
+    sel.innerHTML='<option value="">— Proje seç —</option>'+names.map(n=>`<option value="${x(n)}">${x(n)}</option>`).join('');
+    sel.value=t.project||'';
+    btn.textContent='← Önizle';
+    document.getElementById('btn-task-save').classList.remove('hidden');
+    document.getElementById('btn-task-cancel').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('fe-title').focus(),60);
+  } else {
+    e.classList.add('hidden'); v.classList.remove('hidden');
+    document.getElementById('panel-task-title').textContent=t.title;
+    renderPanelTaskTab('preview');
+    btn.textContent='✏ Düzenle';
+    document.getElementById('btn-task-save').classList.add('hidden');
+    document.getElementById('btn-task-cancel').classList.add('hidden');
+  }
+}
+async function saveTaskFromPanel() {
+  const t=S.detailTask; if(!t) return;
+  const title=document.getElementById('fe-title').value.trim();
+  if(!title){toast('Başlık gerekli','err');return;}
+  const oldProj=t.project;
+  t.title=title;
+  t.project=document.getElementById('fe-project').value||'Genel';
+  t.status=document.getElementById('fe-status').value;
+  t.assignee=document.getElementById('fe-assignee').value.trim();
+  t.priority=document.getElementById('fe-priority').value;
+  t.start_date=document.getElementById('fe-start').value;
+  t.end_date=document.getElementById('fe-end').value;
+  t.body=document.getElementById('fe-body').value;
+  t.updated_at=isoDateTime();
+  if(oldProj!==t.project&&t._dh&&t._file){await fsDelete(t._dh,t._file);t._file=null;t._dh=null;}
+  await persistTask(t);
+  S.taskEditMode=false;
+  document.getElementById('task-edit-mode').classList.add('hidden');
+  document.getElementById('task-view-mode').classList.remove('hidden');
+  document.getElementById('panel-task-title').textContent=t.title;
+  document.getElementById('btn-task-edit').textContent='✏ Düzenle';
+  document.getElementById('btn-task-save').classList.add('hidden');
+  document.getElementById('btn-task-cancel').classList.add('hidden');
+  renderPanelTaskTab('preview');
+  render();
+  toast('Görev güncellendi ✓','ok');
+}
+function cancelTaskEdit() {
+  if(!S.taskEditMode) return;
+  S.taskEditMode=false;
+  document.getElementById('task-edit-mode').classList.add('hidden');
+  document.getElementById('task-view-mode').classList.remove('hidden');
+  document.getElementById('btn-task-edit').textContent='✏ Düzenle';
+  document.getElementById('btn-task-save').classList.add('hidden');
+  document.getElementById('btn-task-cancel').classList.add('hidden');
+  renderPanelTaskTab('preview');
+}
+async function deleteTaskFromPanel() {
+  const t=S.detailTask;
+  if(!t||!confirm(`"${t.title}" silinsin mi?`)) return;
+  if(t._dh&&t._file) await fsDelete(t._dh,t._file);
+  S.tasks=S.tasks.filter(tt=>tt.id!==t.id);
+  closePanel(); render(); toast('Görev silindi','info');
+}
+
+function renderDocPreview(doc) {
+  const el=document.getElementById('panel-doc-preview');
+  const v=getValidity(doc);
+  let meta='';
+  if(v||doc.issue_date||doc.expiry_date||doc.url) {
+    meta='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px;padding:8px 12px;background:var(--bg-sidebar);border:1px solid var(--border);border-radius:var(--radius-sm)">';
+    if(v) meta+=`<span class="val-badge ${v.cls}">${v.label}</span>`;
+    if(doc.issue_date) meta+=`<span style="font-size:11px;color:var(--text-muted)">📅 Düzenleme: ${formatDate(doc.issue_date)}</span>`;
+    if(doc.expiry_date) meta+=`<span style="font-size:11px;color:var(--text-muted)">⏳ Bitiş: ${formatDate(doc.expiry_date)}</span>`;
+    if(safeUrl(doc.url)) meta+=`<a href="${x(safeUrl(doc.url))}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--accent);text-decoration:none;margin-left:auto">🔗 ${x(doc.url)}</a>`;
+    meta+='</div>';
+  }
+  el.innerHTML=(meta||'')+((doc.body||'').trim()?safeMarkdown(doc.body):'<p class="md-empty">İçerik yok. Düzenle butonuyla içerik ekleyin.</p>');
+}
+
+// ── DOC PANEL ──────────────────────────────────────────────────────────────
+function toggleDocEdit() {
+  S.docEditMode=!S.docEditMode;
+  const v=document.getElementById('doc-view-mode');
+  const e=document.getElementById('doc-edit-mode');
+  const btn=document.getElementById('btn-doc-edit');
+  if(S.docEditMode) {
+    v.classList.add('hidden'); e.classList.remove('hidden');
+    const doc=S.detailDoc;
+    document.getElementById('doc-body-edit').value=doc.body||'';
+    document.getElementById('fde-validity').value=doc.validity_status||'';
+    document.getElementById('fde-issue').value=doc.issue_date||'';
+    document.getElementById('fde-expiry').value=doc.expiry_date||'';
+    document.getElementById('fde-url').value=doc.url||'';
+    btn.textContent='← Önizle';
+    document.getElementById('btn-doc-save').classList.remove('hidden');
+    document.getElementById('btn-doc-cancel').classList.remove('hidden');
+    document.getElementById('btn-doc-docx').classList.add('hidden');
+    document.getElementById('doc-body-edit').focus();
+  } else {
+    renderDocPreview(S.detailDoc);
+    e.classList.add('hidden'); v.classList.remove('hidden');
+    btn.textContent='✏ Düzenle';
+    document.getElementById('btn-doc-save').classList.add('hidden');
+    document.getElementById('btn-doc-cancel').classList.add('hidden');
+    document.getElementById('btn-doc-docx').classList.remove('hidden');
+  }
+}
+function readDocMetaFields(doc) {
+  doc.validity_status=document.getElementById('fde-validity').value||'';
+  doc.issue_date=document.getElementById('fde-issue').value||'';
+  doc.expiry_date=document.getElementById('fde-expiry').value||'';
+  doc.url=document.getElementById('fde-url').value||'';
+}
+async function saveDoc() {
+  const doc=S.detailDoc; if(!doc) return;
+  doc.body=document.getElementById('doc-body-edit').value;
+  readDocMetaFields(doc);
+  doc.updated_at=isoDateTime();
+  await persistDocument(doc);
+  const i=S.documents.findIndex(d=>d.id===doc.id);
+  if(i>=0) S.documents[i]=doc;
+  if(S.docEditMode){S.docEditMode=true;toggleDocEdit();}
+  document.getElementById('btn-doc-save').classList.add('hidden');
+  document.getElementById('btn-doc-cancel').classList.add('hidden');
+  document.getElementById('btn-doc-docx').classList.remove('hidden');
+  if(S.viewType==='doc') renderDocListView();
+  toast('Doküman kaydedildi ✓','ok');
+}
+function cancelDocEdit() {
+  if(S.docEditMode){S.docEditMode=true;toggleDocEdit();}
+  document.getElementById('btn-doc-save').classList.add('hidden');
+  document.getElementById('btn-doc-cancel').classList.add('hidden');
+  document.getElementById('btn-doc-docx').classList.remove('hidden');
+}
+async function deleteDoc() {
+  const doc=S.detailDoc;
+  if(!doc||!confirm(`"${doc.title}" silinsin mi?`)) return;
+  if(doc._dh&&doc._file) await fsDelete(doc._dh,doc._file);
+  S.documents=S.documents.filter(d=>d.id!==doc.id);
+  closePanel();
+  if(S.viewType==='doc') renderDocListView();
+  renderSidebar();
+  toast('Doküman silindi','info');
+}
+async function deleteDocById(id) {
+  const doc=S.documents.find(d=>d.id===id);
+  if(!doc||!confirm(`"${doc.title}" silinsin mi?`)) return;
+  if(doc._dh&&doc._file) await fsDelete(doc._dh,doc._file);
+  S.documents=S.documents.filter(d=>d.id!==doc.id);
+  if(S.detailDoc&&S.detailDoc.id===id) closePanel();
+  if(S.viewType==='doc') renderDocListView();
+  renderSidebar();
+  toast('Doküman silindi','info');
+}
+
+// ── DOC LIST MODAL ─────────────────────────────────────────────────────────
+function openDocListModal(list=null) {
+  document.getElementById('doc-list-modal-title').textContent=list?'Doküman Listesini Düzenle':'Yeni Doküman Listesi';
+  document.getElementById('fdl-id').value=list?.id||'';
+  document.getElementById('fdl-name').value=list?.name||'';
+  document.getElementById('fdl-color').value=list?.color||PALETTE[S.docLists.length%PALETTE.length];
+  document.getElementById('doc-list-modal-bg').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('fdl-name').focus(),60);
+}
+function closeDocListModal() { document.getElementById('doc-list-modal-bg').classList.add('hidden'); }
+async function saveDocList() {
+  const name=document.getElementById('fdl-name').value.trim();
+  if(!name){toast('Liste adı gerekli','err');return;}
+  try { validFolderName(name); } catch(e) { toast(e.message,'err'); return; }
+  const editId=document.getElementById('fdl-id').value;
+  const oldList=S.docLists.find(l=>l.id===editId);
+  if(S.docLists.find(l=>l.name===name&&(!oldList||l.id!==oldList.id))){toast('Bu isimde liste zaten var','err');return;}
+  const list=oldList?{...oldList,name,color:document.getElementById('fdl-color').value}:{id:`dl-${uid()}`,name,color:document.getElementById('fdl-color').value};
+  const oldName=oldList?oldList.name:null;
+  // Create / rename folder
+  const docRoot=await fsDir(S.dir,'documents');
+  if(oldList&&oldName!==name) {
+    try {
+      const docs=S.documents.filter(d=>d._listName===oldName);
+      const newDh=await fsDir(docRoot,name);
+      for(const doc of docs) {
+        if(doc._dh&&doc._file) {
+          const text=await fsRead(doc._dh,doc._file);
+          await fsWrite(newDh,doc._file,text);
+          await fsDelete(doc._dh,doc._file);
+          doc._dh=newDh; doc._listName=name;
+        }
+      }
+      try { await docRoot.removeEntry(oldName); } catch {}
+    } catch {}
+    S.documents.forEach(d=>{if(d._listName===oldName) d._listName=name;});
+  } else if(!oldList) {
+    await fsDir(docRoot,name);
+  }
+  if(oldList) { S.docLists=S.docLists.map(l=>l.id===oldList.id?list:l); }
+  else { S.docLists.push(list); }
+  S.docLists.sort((a,b)=>a.name.localeCompare(b.name));
+  await persistDocLists();
+  closeDocListModal();
+  if(S.filterDocList===oldName) { S.filterDocList=name; if(S.viewType==='doc') renderDocListView(); }
+  renderSidebar();
+  if(!oldList) openDocListView(name);
+  toast(oldList?`"${name}" güncellendi ✓`:`"${name}" listesi oluşturuldu ✓`,'ok');
+}
+
+// ── DOC MODAL ──────────────────────────────────────────────────────────────
+function openDocModal() {
+  if(!S.filterDocList){toast('Önce bir doküman listesi seç','err');return;}
+  document.getElementById('doc-modal-title').textContent=`Yeni Doküman — ${S.filterDocList}`;
+  document.getElementById('fd-title').value='';
+  document.getElementById('doc-modal-bg').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('fd-title').focus(),60);
+}
+function closeDocModal() { document.getElementById('doc-modal-bg').classList.add('hidden'); }
+async function createDoc() {
+  const title=document.getElementById('fd-title').value.trim();
+  if(!title){toast('Başlık gerekli','err');return;}
+  const doc={id:`doc-${uid()}`,title,body:'',created_at:isoDate(),updated_at:isoDateTime(),_file:null,_listName:S.filterDocList,_dh:null};
+  await persistDocument(doc);
+  S.documents.push(doc);
+  closeDocModal();
+  renderSidebar();
+  if(S.viewType==='doc') renderDocListView();
+  openPanel('doc',doc.id);
+  setTimeout(()=>{if(!S.docEditMode)toggleDocEdit();},80);
+  toast(`"${title}" oluşturuldu ✓`,'ok');
+}
+
+// ── TASK MODAL ─────────────────────────────────────────────────────────────
+function openTaskModal(id=null,defaultStatus='todo') {
+  const t=id?S.tasks.find(t=>t.id===id):null;
+  S.editTask=t;
+  document.getElementById('task-modal-title').textContent=t?'Görevi Düzenle':'Yeni Görev';
+  document.getElementById('f-id').value=t?.id||'';
+  document.getElementById('f-title').value=t?.title||'';
+  document.getElementById('f-assignee').value=t?.assignee||'';
+  document.getElementById('f-priority').value=t?.priority||'medium';
+  document.getElementById('f-start').value=t?.start_date||'';
+  document.getElementById('f-end').value=t?.end_date||'';
+  document.getElementById('f-body').value=t?.body||'';
+  document.getElementById('f-status').value=t?.status||defaultStatus;
+  const names=[...new Set([...S.projects.map(p=>p.name),...S.tasks.map(t=>t.project).filter(Boolean)])];
+  const sel=document.getElementById('f-project');
+  sel.innerHTML='<option value="">— Proje seç —</option>'+names.map(n=>`<option value="${x(n)}">${x(n)}</option>`).join('')+'<option value="__new__">＋ Yeni proje…</option>';
+  sel.value=t?.project||S.filterProj||'';
+  sel.onchange=()=>{if(sel.value==='__new__'){closeTaskModal();openProjectModal();}};
+  document.getElementById('btn-delete').classList.toggle('hidden',!t);
+  document.getElementById('task-modal-bg').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('f-title').focus(),60);
+}
+async function saveTask() {
+  const title=document.getElementById('f-title').value.trim();
+  if(!title){toast('Başlık gerekli','err');return;}
+  const ex=S.editTask;
+  const t={id:ex?.id||`task-${uid()}`,title,project:document.getElementById('f-project').value||'Genel',status:document.getElementById('f-status').value,assignee:document.getElementById('f-assignee').value.trim(),priority:document.getElementById('f-priority').value,start_date:document.getElementById('f-start').value,end_date:document.getElementById('f-end').value,body:document.getElementById('f-body').value,created_at:ex?.created_at||isoDate(),updated_at:isoDateTime(),_file:ex?._file||null,_projDir:ex?._projDir||null,_dh:ex?._dh||null};
+  if(ex&&ex._projDir!==t.project&&ex._dh&&ex._file){await fsDelete(ex._dh,ex._file);t._file=null;t._dh=null;}
+  await persistTask(t);
+  const i=S.tasks.findIndex(tt=>tt.id===t.id);
+  if(i>=0) S.tasks[i]=t; else S.tasks.push(t);
+  closeTaskModal(); render(); toast(ex?'Görev güncellendi ✓':'Görev oluşturuldu ✓','ok');
+}
+async function deleteTask() {
+  const t=S.editTask;
+  if(!t||!confirm(`"${t.title}" silinsin mi?`)) return;
+  if(t._dh&&t._file) await fsDelete(t._dh,t._file);
+  S.tasks=S.tasks.filter(tt=>tt.id!==t.id);
+  closeTaskModal(); render(); toast('Görev silindi','info');
+}
+async function deleteTaskById(id) {
+  const t=S.tasks.find(tt=>tt.id===id);
+  if(!t||!confirm(`"${t.title}" silinsin mi?`)) return;
+  if(t._dh&&t._file) await fsDelete(t._dh,t._file);
+  S.tasks=S.tasks.filter(tt=>tt.id!==t.id);
+  if(S.detailTask&&S.detailTask.id===id) closePanel();
+  render(); toast('Görev silindi','info');
+}
+async function duplicateTaskById(id) {
+  const t=S.tasks.find(tt=>tt.id===id); if(!t) return;
+  const copy={...t, id:`task-${uid()}`, created_at:isoDate(), updated_at:isoDateTime(), _file:null, _dh:null };
+  await persistTask(copy);
+  S.tasks.push(copy);
+  render(); toast('Görev kopyalandı ✓','ok');
+}
+async function duplicateDocById(id) {
+  const doc=S.documents.find(d=>d.id===id); if(!doc) return;
+  const copy={...doc, id:`doc-${uid()}`, created_at:isoDate(), updated_at:isoDateTime(), _file:null, _dh:null };
+  await persistDocument(copy);
+  S.documents.push(copy);
+  if(S.viewType==='doc') renderDocListView();
+  renderSidebar();
+  toast('Doküman kopyalandı ✓','ok');
+}
+function closeTaskModal() { document.getElementById('task-modal-bg').classList.add('hidden'); S.editTask=null; }
+
+// ── PROJECT MODAL ──────────────────────────────────────────────────────────
+function openProjectModal(p=null) {
+  document.getElementById('proj-modal-title').textContent=p?'Proje Düzenle':'Yeni Proje';
+  document.getElementById('fp-id').value=p?.id||'';
+  document.getElementById('fp-name').value=p?.name||'';
+  document.getElementById('fp-color').value=p?.color||PALETTE[S.projects.length%PALETTE.length];
+  document.getElementById('fp-desc').value=p?.description||'';
+  document.getElementById('proj-modal-bg').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('fp-name').focus(),60);
+}
+async function saveProject() {
+  const name=document.getElementById('fp-name').value.trim();
+  if(!name){toast('Proje adı gerekli','err');return;}
+  try { validFolderName(name,true); } catch(e) { toast(e.message,'err'); return; }
+  if(S.projects.some(p=>p.name.toLocaleLowerCase('tr')===name.toLocaleLowerCase('tr')&&p.id!==document.getElementById('fp-id').value)){toast('Bu isimde proje zaten var','err');return;}
+  const id=document.getElementById('fp-id').value||uid();
+  const p={id,name,color:document.getElementById('fp-color').value,description:document.getElementById('fp-desc').value.trim()};
+  await fsDir(S.dir,name);
+  const i=S.projects.findIndex(pp=>pp.id===id);
+  if(i>=0) S.projects[i]=p; else S.projects.push(p);
+  await persistProjects(); closeProjectModal(); render(); toast(`Proje "${name}" oluşturuldu ✓`,'ok');
+}
+function closeProjectModal() { document.getElementById('proj-modal-bg').classList.add('hidden'); }
+function editProjectById(id) {
+  const p=S.projects.find(pp=>pp.id===id);
+  if(p) openProjectModal(p);
+}
+function editDocListById(id) {
+  const list=S.docLists.find(l=>l.id===id);
+  if(list) openDocListModal(list);
+}
+async function deleteProject(id) {
+  const p=S.projects.find(pp=>pp.id===id);
+  if(!p||!confirm(`"${p.name}" projesi ve içindeki tüm görevler silinsin mi?`)) return;
+  // Delete all tasks in this project
+  const tasks=S.tasks.filter(t=>t.project===p.name);
+  for(const t of tasks) { if(t._dh&&t._file) await fsDelete(t._dh,t._file); }
+  S.tasks=S.tasks.filter(t=>t.project!==p.name);
+  // Remove project folder if exists
+  try { await S.dir.removeEntry(p.name); } catch {}
+  S.projects=S.projects.filter(pp=>pp.id!==id);
+  await persistProjects();
+  if(S.filterProj===p.name) S.filterProj=null;
+  if(S.detailTask&&tasks.find(t=>t.id===S.detailTask.id)) closePanel();
+  render(); toast(`"${p.name}" projesi silindi`,'info');
+}
+async function deleteDocList(id) {
+  const list=S.docLists.find(l=>l.id===id);
+  if(!list||!confirm(`"${list.name}" listesi ve içindeki tüm dokümanlar silinsin mi?`)) return;
+  // Delete all documents in this list
+  const docs=S.documents.filter(d=>d._listName===list.name);
+  for(const doc of docs) { if(doc._dh&&doc._file) await fsDelete(doc._dh,doc._file); }
+  S.documents=S.documents.filter(d=>d._listName!==list.name);
+  // Remove list folder
+  try {
+    const docRoot=await S.dir.getDirectoryHandle('documents',{create:false});
+    await docRoot.removeEntry(list.name);
+  } catch {}
+  S.docLists=S.docLists.filter(l=>l.id!==id);
+  await persistDocLists();
+  if(S.filterDocList===list.name) { S.filterDocList=null; switchToTaskView(); }
+  if(S.detailDoc&&docs.find(d=>d.id===S.detailDoc.id)) closePanel();
+  render(); toast(`"${list.name}" listesi silindi`,'info');
+}
+
+// ── PROJECT ARCHIVE ────────────────────────────────────────────────────────
+async function archiveProject(id) {
+  const p=S.projects.find(pp=>pp.id===id);
+  if(!p||!confirm(`"${p.name}" projesi arşivlensin mi?`)) return;
+  p.archived=true;
+  await persistProjects();
+  if(S.filterProj===p.name) S.filterProj=null;
+  render();
+  toast(`"${p.name}" arşivlendi ✓`,'ok');
+}
+async function unarchiveProject(id) {
+  const p=S.projects.find(pp=>pp.id===id);
+  if(!p) return;
+  p.archived=false;
+  await persistProjects();
+  render();
+  toast(`"${p.name}" geri getirildi ✓`,'ok');
+}
+
+// ── INLINE RENAME ──────────────────────────────────────────────────────────
+function inlineRename(el, saveFn, currentValue) {
+  if(el.querySelector('input')) return;
+  const origHtml=el.innerHTML;
+  const input=document.createElement('input');
+  input.type='text'; input.value=currentValue; input.className='form-input';
+  input.style.cssText='font-size:inherit;font-weight:inherit;padding:3px 6px;width:100%;min-width:100px';
+  el.innerHTML=''; el.appendChild(input);
+  input.focus(); input.select();
+  const done=async()=>{
+    const v=input.value.trim();
+    if(v&&v!==currentValue) await saveFn(v);
+    else el.innerHTML=origHtml;
+  };
+  input.addEventListener('blur',done);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();input.blur();}if(e.key==='Escape'){input.value=currentValue;input.blur();}});
+}
+function renameDocStart() {
+  const doc=S.detailDoc; if(!doc) return;
+  inlineRename(document.getElementById('panel-doc-title'), newTitle=>renameDocument(doc.title,newTitle), doc.title);
+}
+function renameProjectStart(el, name) {
+  inlineRename(el, newName=>renameProject(name,newName), name);
+}
+function renameDocListStart(el, name) {
+  inlineRename(el, newName=>renameDocList(name,newName), name);
+}
+async function renameDocument(oldTitle,newTitle) {
+  const doc=S.detailDoc; if(!doc) return;
+  doc.title=newTitle; doc.updated_at=isoDateTime();
+  await persistDocument(doc);
+  const i=S.documents.findIndex(d=>d.id===doc.id);
+  if(i>=0) S.documents[i]=doc;
+  document.getElementById('panel-doc-title').textContent=newTitle;
+  if(S.viewType==='doc') renderDocListView();
+  renderSidebar();
+  toast('Başlık güncellendi ✓','ok');
+}
+async function renameProject(oldName,newName) {
+  const proj=S.projects.find(p=>p.name===oldName);
+  if(!proj||S.projects.find(p=>p.name===newName&&p.id!==proj.id)){toast('Bu isimde proje zaten var','err');render();return;}
+  try {
+    const tasks=S.tasks.filter(t=>t.project===oldName);
+    const newDh=await fsDir(S.dir,newName);
+    for(const t of tasks) {
+      if(t._dh&&t._file) {
+        const text=await fsRead(t._dh,t._file);
+        await fsWrite(newDh,t._file,text);
+        await fsDelete(t._dh,t._file);
+        t._dh=newDh; t._projDir=newName; t.project=newName;
+      }
+    }
+    try { await S.dir.removeEntry(oldName); } catch {}
+  } catch {}
+  proj.name=newName;
+  S.tasks.forEach(t=>{if(t.project===oldName) t.project=newName;});
+  await persistProjects();
+  if(S.filterProj===oldName) S.filterProj=newName;
+  if(S.detailTask&&S.detailTask.project===oldName) S.detailTask.project=newName;
+  render();
+  toast('Proje adı güncellendi ✓','ok');
+}
+async function renameDocList(oldName,newName) {
+  const list=S.docLists.find(l=>l.name===oldName);
+  if(!list||S.docLists.find(l=>l.name===newName&&l.id!==list.id)){toast('Bu isimde liste zaten var','err');render();return;}
+  try {
+    const docRoot=await S.dir.getDirectoryHandle('documents',{create:false});
+    const docs=S.documents.filter(d=>d._listName===oldName);
+    const newDh=await fsDir(docRoot,newName);
+    for(const doc of docs) {
+      if(doc._dh&&doc._file) {
+        const text=await fsRead(doc._dh,doc._file);
+        await fsWrite(newDh,doc._file,text);
+        await fsDelete(doc._dh,doc._file);
+        doc._dh=newDh; doc._listName=newName;
+      }
+    }
+    try { await docRoot.removeEntry(oldName); } catch {}
+  } catch {}
+  list.name=newName;
+  S.documents.forEach(d=>{if(d._listName===oldName) d._listName=newName;});
+  await persistDocLists();
+  if(S.filterDocList===oldName) S.filterDocList=newName;
+  render();
+  toast('Liste adı güncellendi ✓','ok');
+}
+
+// ── MD TOOLBAR ─────────────────────────────────────────────────────────────
+function mdLine(tid,prefix) {
+  const ta=document.getElementById(tid); if(!ta) return;
+  const st=ta.scrollTop;
+  const s=ta.selectionStart,e=ta.selectionEnd,v=ta.value;
+  const ls=v.lastIndexOf('\n',s-1)+1;
+  ta.value=v.substring(0,ls)+prefix+v.substring(ls);
+  ta.scrollTop=st;
+  ta.focus({preventScroll:true}); ta.setSelectionRange(s+prefix.length,e+prefix.length);
+}
+function mdWrap(tid,before,after) {
+  const ta=document.getElementById(tid); if(!ta) return;
+  const st=ta.scrollTop;
+  const s=ta.selectionStart,e=ta.selectionEnd;
+  const sel=ta.value.substring(s,e)||'metin';
+  const r=before+sel+after;
+  ta.value=ta.value.substring(0,s)+r+ta.value.substring(e);
+  ta.scrollTop=st;
+  ta.focus({preventScroll:true}); ta.setSelectionRange(s+before.length,s+before.length+sel.length);
+}
+function mdCodeBlock(tid) {
+  const ta=document.getElementById(tid); if(!ta) return;
+  const st=ta.scrollTop;
+  const s=ta.selectionStart,e=ta.selectionEnd;
+  const sel=ta.value.substring(s,e)||'kod';
+  const r='```\n'+sel+'\n```';
+  ta.value=ta.value.substring(0,s)+r+ta.value.substring(e);
+  ta.scrollTop=st;
+  ta.focus({preventScroll:true}); ta.setSelectionRange(s+4,s+4+sel.length);
+}
+function mdTable(tid) {
+  const ta=document.getElementById(tid); if(!ta) return;
+  const st=ta.scrollTop;
+  const s=ta.selectionStart;
+  const tbl='\n| Başlık 1 | Başlık 2 | Başlık 3 |\n| --- | --- | --- |\n| Hücre | Hücre | Hücre |\n';
+  ta.value=ta.value.substring(0,s)+tbl+ta.value.substring(s);
+  ta.scrollTop=st;
+  ta.focus({preventScroll:true});
+}
+function mdLink(tid) {
+  const ta=document.getElementById(tid); if(!ta) return;
+  const st=ta.scrollTop;
+  const s=ta.selectionStart,e=ta.selectionEnd;
+  const sel=ta.value.substring(s,e)||'bağlantı metni';
+  const r=`[${sel}](https://url.com)`;
+  ta.value=ta.value.substring(0,s)+r+ta.value.substring(e);
+  ta.scrollTop=st;
+  ta.focus({preventScroll:true}); const us=s+1+sel.length+2; ta.setSelectionRange(us,us+'https://url.com'.length);
+}
+
+// ── DOCX EXPORT ────────────────────────────────────────────────────────────
+async function ensureDocxLib() {
+  if(window.docx) return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='vendor/docx.js';
+    s.onload=res; s.onerror=()=>rej(new Error('yüklenemedi'));
+    document.head.appendChild(s);
+  });
+}
+
+function dehtml(s) {
+  if(!s) return '';
+  const el=document.createElement('textarea');
+  el.innerHTML=s; return el.value;
+}
+
+function mdRuns(D,tokens,opts) {
+  const base={font:'Arial',size:22,color:'000000',...opts};
+  const r=[];
+  for(const t of (tokens||[])) {
+    if(t.type==='text'||t.type==='escape') {
+      r.push(new D.TextRun({text:dehtml(t.text)||'', ...base}));
+    } else if(t.type==='strong') {
+      r.push(...mdRuns(D,t.tokens||[{type:'text',text:t.text}],{...base,bold:true}));
+    } else if(t.type==='em') {
+      r.push(...mdRuns(D,t.tokens||[{type:'text',text:t.text}],{...base,italics:true}));
+    } else if(t.type==='del') {
+      r.push(...mdRuns(D,t.tokens||[{type:'text',text:t.text}],{...base,strike:true}));
+    } else if(t.type==='codespan') {
+      r.push(new D.TextRun({text:dehtml(t.text),font:'Courier New',size:base.size,color:base.color}));
+    } else if(t.type==='link') {
+      r.push(...mdRuns(D,t.tokens||[{type:'text',text:t.text||t.href}],base));
+    } else {
+      const txt=dehtml(t.raw||t.text||'');
+      if(txt) r.push(new D.TextRun({text:txt,...base}));
+    }
+  }
+  return r;
+}
+
+function mdBlockElems(D,tokens) {
+  const JUST=D.AlignmentType.JUSTIFIED;
+  const BASE={font:'Arial',size:22,color:'000000'};
+  const elems=[];
+  for(const tok of tokens) {
+    if(tok.type==='heading') {
+      const sz=[48,36,28,24,22,22][tok.depth-1];
+      elems.push(new D.Paragraph({
+        children:mdRuns(D,tok.tokens||[{type:'text',text:tok.text}],{bold:true,size:sz}),
+        alignment:JUST,spacing:{before:240,after:120}
+      }));
+    } else if(tok.type==='paragraph') {
+      elems.push(new D.Paragraph({
+        children:mdRuns(D,tok.tokens||[{type:'text',text:tok.text}],BASE),
+        alignment:JUST,spacing:{after:120}
+      }));
+    } else if(tok.type==='list') {
+      tok.items.forEach((item,i)=>{
+        const pfx=tok.ordered?`${i+1}. `:'• ';
+        const inl=item.tokens?.[0]?.tokens||[{type:'text',text:item.text}];
+        elems.push(new D.Paragraph({
+          children:[new D.TextRun({text:pfx,...BASE}),...mdRuns(D,inl,BASE)],
+          alignment:JUST,spacing:{after:60},indent:{left:360}
+        }));
+        for(const sub of (item.tokens||[]).slice(1)) {
+          if(sub.type==='list') sub.items.forEach((si,j)=>{
+            const sp=sub.ordered?`  ${j+1}. `:'  ◦ ';
+            const st=si.tokens?.[0]?.tokens||[{type:'text',text:si.text}];
+            elems.push(new D.Paragraph({
+              children:[new D.TextRun({text:sp,...BASE}),...mdRuns(D,st,BASE)],
+              alignment:JUST,spacing:{after:40},indent:{left:720}
+            }));
+          });
+        }
+      });
+    } else if(tok.type==='table') {
+      const trows=[];
+      trows.push(new D.TableRow({
+        tableHeader:true,
+        children:tok.header.map(cell=>new D.TableCell({
+          children:[new D.Paragraph({
+            children:mdRuns(D,cell.tokens||[{type:'text',text:cell.text}],{...BASE,bold:true}),
+            alignment:JUST
+          })],
+          margins:{top:60,bottom:60,left:113,right:113}
+        }))
+      }));
+      tok.rows.forEach(row=>trows.push(new D.TableRow({
+        children:row.map(cell=>new D.TableCell({
+          children:[new D.Paragraph({
+            children:mdRuns(D,cell.tokens||[{type:'text',text:cell.text}],BASE),
+            alignment:JUST
+          })],
+          margins:{top:60,bottom:60,left:113,right:113}
+        }))
+      })));
+      elems.push(new D.Table({rows:trows,width:{size:100,type:D.WidthType.PERCENTAGE}}));
+      elems.push(new D.Paragraph({children:[new D.TextRun({text:''})]}));
+    } else if(tok.type==='code') {
+      elems.push(new D.Paragraph({
+        children:[new D.TextRun({text:tok.text,font:'Courier New',size:20,color:'000000'})],
+        spacing:{after:120}
+      }));
+    } else if(tok.type==='blockquote') {
+      mdBlockElems(D,tok.tokens||[]).forEach(e=>elems.push(e));
+    } else if(tok.type==='hr') {
+      elems.push(new D.Paragraph({
+        children:[new D.TextRun({text:''})],
+        border:{bottom:{style:D.BorderStyle.SINGLE,size:6,color:'000000'}},
+        spacing:{before:120,after:120}
+      }));
+    } else if(tok.type==='space') {
+      elems.push(new D.Paragraph({children:[new D.TextRun({text:''})]}));
+    }
+  }
+  return elems;
+}
+
+async function downloadDocx(docObj) {
+  try { await ensureDocxLib(); } catch { toast('DOCX kütüphanesi yüklenemedi','err'); return; }
+  const D=window.docx;
+  const JUST=D.AlignmentType.JUSTIFIED;
+  const children=[
+    new D.Paragraph({
+      children:[new D.TextRun({text:docObj.title,font:'Arial',size:40,bold:true,color:'000000'})],
+      alignment:JUST,spacing:{after:240}
+    }),
+    ...mdBlockElems(D,marked.lexer(docObj.body||''))
+  ];
+  const wordDoc=new D.Document({sections:[{
+    properties:{page:{margin:{top:1440,right:1800,bottom:1440,left:1800}}},
+    children
+  }]});
+  const blob=await D.Packer.toBlob(wordDoc);
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=(docObj.title||'document').replace(/[/\\?%*:|"<>]/g,'-')+'.docx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('DOCX indirildi ✓','ok');
+}
+
+function hasUnsavedWork() {
+  if(S.taskEditMode||S.docEditMode) return true;
+  return ['task-modal-bg','proj-modal-bg','doc-modal-bg','doc-list-modal-bg'].some(id=>!document.getElementById(id).classList.contains('hidden'));
+}
+
+// ── APP ────────────────────────────────────────────────────────────────────
+const App = {
+  async openFolder() {
+    if(!('showDirectoryPicker' in window)){toast('Chrome, Edge veya uyumlu bir Chromium tarayıcısı kullanın.','err');return;}
+    if(S.openingFolder||!Branding.ensureBeforePick()) return;
+    if(hasUnsavedWork()&&!confirm('Kaydedilmemiş değişiklikler var. Klasör değiştirirseniz bu değişiklikler kaybolacak. Devam edilsin mi?')) return;
+    S.openingFolder=true;
+    const before={...S}, brandBefore=Branding.snapshot();
+    document.body.inert=true;
+    try {
+      const dh=await fsPickDir(); if(!dh) return;
+      S.dir=dh; S.query=''; S.filterProj=null; S.filterAssignee=null; S.filterDocList=null;
+      S.filterStatus='active'; S.viewType='task';
+      await loadAll(false);
+      await Branding.loadFromDirectory(dh);
+      closePanel();
+      const fp=document.getElementById('folder-pill');
+      fp.textContent=dh.name; fp.classList.remove('hidden');
+      document.getElementById('search-input').value='';
+      document.getElementById('welcome').classList.add('hidden');
+      document.getElementById('sidebar').classList.remove('hidden');
+      document.getElementById('main').classList.remove('hidden');
+      document.getElementById('btn-sync').classList.remove('hidden');
+      switchToTaskView(); render();
+      toast('Klasör yüklendi: '+dh.name,'ok');
+    } catch(e) {
+      Object.assign(S,before); Branding.restore(brandBefore); render();
+      toast('Klasör yüklenemedi: '+e.message,'err');
+    } finally { S.openingFolder=false; document.body.inert=false; }
+  },
+  async sync() { if(!S.dir) return; await loadAll(); toast('Yenilendi','info'); },
+  setView(view) {
+    S.view=view;
+    document.getElementById('btn-kanban').classList.toggle('active',view==='kanban');
+    document.getElementById('btn-list').classList.toggle('active',view==='list');
+    document.getElementById('kanban-root').classList.toggle('hidden',view!=='kanban');
+    document.getElementById('list-root').classList.toggle('hidden',view!=='list');
+    render();
+  },
+  search(q) { S.query=q; render(); },
+  filterProj(n,status='active') {
+    if(S.viewType==='doc') switchToTaskView();
+    S.filterProj=n; S.filterStatus=n?null:status; render();
+  },
+  filterAssignee(n) {
+    if(S.viewType==='doc') switchToTaskView();
+    S.filterAssignee=n; render();
+  },
+  sort(field) {
+    if(S.sortField===field) S.sortDir=S.sortDir==='asc'?'desc':'asc';
+    else{S.sortField=field;S.sortDir='asc';}
+    renderList();
+  },
+  toggleSection(id) { toggleSection(id); },
+  openTaskModal:(id,st)=>openTaskModal(id,st),
+  closeTaskModal, saveTask, deleteTask, deleteTaskById, duplicateTaskById,
+  openPanel:(type,id)=>openPanel(type,id),
+  closePanel,
+  togglePanelFullscreen,
+  panelTab(el,name){renderPanelTaskTab(name);},
+  editFromPanel(){const t=S.detailTask;closePanel();if(t)openTaskModal(t.id);},
+  toggleTaskEdit, saveTaskFromPanel, cancelTaskEdit, deleteTaskFromPanel, openTaskEditPanel,
+  toggleDocEdit, saveDoc, cancelDocEdit, deleteDoc, deleteDocById, duplicateDocById, downloadDocx,
+  renameDocStart, renameProjectStart, renameDocListStart,
+  openDocListView:(name)=>openDocListView(name),
+  openDocListModal, closeDocListModal, saveDocList,
+  openDocModal, closeDocModal, createDoc,
+  openProjectModal:(p)=>openProjectModal(p), closeProjectModal, saveProject, deleteProject, editProjectById, archiveProject, unarchiveProject,
+  openDocListModal, closeDocListModal, saveDocList, deleteDocList, editDocListById,
+  dragStart(event,id){S.dragging=id;S.isDragging=true;event.dataTransfer.effectAllowed='move';setTimeout(()=>{const el=document.querySelector(`[data-id="${id}"]`);if(el)el.classList.add('dragging');},0);},
+  dragEnd(event){event.target.classList.remove('dragging');document.querySelectorAll('.k-cards').forEach(el=>el.classList.remove('drag-over'));setTimeout(()=>{S.isDragging=false;},80);S.dragging=null;},
+  dragOver(event,status){event.preventDefault();event.dataTransfer.dropEffect='move';document.getElementById(`col-${status}`)?.classList.add('drag-over');},
+  dragLeave(event){event.currentTarget.classList.remove('drag-over');},
+  async drop(event,newStatus){
+    event.preventDefault();document.querySelectorAll('.k-cards').forEach(el=>el.classList.remove('drag-over'));
+    const id=S.dragging; if(!id) return;
+    const t=S.tasks.find(t=>t.id===id); if(!t||t.status===newStatus) return;
+    t.status=newStatus;t.updated_at=isoDateTime();await persistTask(t);renderKanban();renderSidebar();toast(`→ ${statusInfo(newStatus).label}`,'info');
+  },
+};
+
+// ── TOAST ──────────────────────────────────────────────────────────────────
+function toast(msg,type='info') {
+  const icons={ok:'✓',err:'✕',info:'ℹ'};
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<span>${icons[type]||''}</span><span>${x(msg)}</span>`;
+  document.getElementById('toast-area').appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// ── SIDEBAR RESIZE ─────────────────────────────────────────────────────────
+function initSidebarResize() {
+  const sidebar=document.getElementById('sidebar');
+  const resizer=document.getElementById('sidebar-resizer');
+  let startX,startW;
+  resizer.addEventListener('mousedown',e=>{
+    startX=e.clientX; startW=sidebar.offsetWidth;
+    sidebar.style.transition='none';
+    resizer.classList.add('resizing');
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+    e.preventDefault();
+  });
+  function onMove(e) {
+    const w=Math.min(Math.max(startW+(e.clientX-startX),150),500);
+    sidebar.style.width=w+'px';
+  }
+  function onUp() {
+    sidebar.style.transition='';
+    resizer.classList.remove('resizing');
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    try{localStorage.setItem('bnb-sidebar-width',sidebar.style.width);}catch{}
+  }
+}
+
+// ── PANEL RESIZE ───────────────────────────────────────────────────────────
+function initPanelResize() {
+  const panel=document.getElementById('side-panel');
+  const resizer=document.getElementById('panel-resizer');
+  let startX,startW;
+  resizer.addEventListener('mousedown',e=>{
+    if(S.panelFullscreen) return;
+    startX=e.clientX; startW=panel.offsetWidth;
+    panel.style.transition='none';
+    resizer.classList.add('resizing');
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+    e.preventDefault();
+  });
+  function onMove(e) {
+    const w=Math.min(Math.max(startW+(startX-e.clientX),320),1400);
+    panel.style.width=w+'px';
+  }
+  function onUp() {
+    panel.style.transition='';
+    resizer.classList.remove('resizing');
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    try{localStorage.setItem('bnb-panel-width',panel.style.width);}catch{}
+  }
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(function init(){
+  document.getElementById('today-chip').textContent='📅 Bugün: '+formatDate(isoDate());
+  Branding.init();
+  document.addEventListener('branding:ready',()=>document.getElementById('btn-open').focus());
+  initSidebarResize();
+  try{const w=localStorage.getItem('bnb-sidebar-width');if(w)document.getElementById('sidebar').style.width=w;}catch{}
+  initPanelResize();
+  try{const w=localStorage.getItem('bnb-panel-width');if(w)document.getElementById('side-panel').style.width=w;}catch{}
+  if(!('showDirectoryPicker' in window))
+    document.getElementById('support-msg').innerHTML='<span class="no-support">⚠ File System API desteklenmiyor. Chrome veya Edge kullanın.</span>';
+  const header=document.querySelector('header');
+  if(window.ResizeObserver) new ResizeObserver(()=>document.documentElement.style.setProperty('--header-height',header.offsetHeight+'px')).observe(header);
+  window.addEventListener('beforeunload',e=>{if(hasUnsavedWork()){e.preventDefault();e.returnValue='';}});
+  window.addEventListener('unhandledrejection',e=>{toast('İşlem tamamlanamadı: '+(e.reason?.message||'Bilinmeyen hata'),'err');e.preventDefault();});
+  document.addEventListener('keydown',e=>{
+    if(document.querySelector('#branding-dialog[open]')) return;
+    if(e.key==='Escape'){closeTaskModal();closePanel();closeProjectModal();closeDocModal();closeDocListModal();}
+    if((e.ctrlKey||e.metaKey)&&e.key==='n'&&S.dir){e.preventDefault();openTaskModal();}
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Local workspaces, secrets and history must never be published.
+.git
+.env
+.env.*
+!.env.example
+.tracker/
+projects/
+documents/
+veriler/
+yedekler/
+arsiv/
+_backups/
+*.bak
+*.tmp
+*.log
+*.py[cod]
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+.claude/
+agent/
+Thumbs.db
+desktop.ini
+.DS_Store

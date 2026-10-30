@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+# Preserve upstream bundles/license bytes, including their whitespace.
+vendor/** -text -whitespace
